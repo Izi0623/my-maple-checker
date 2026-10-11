@@ -63,6 +63,16 @@ function save() {
   try { localStorage.setItem(STORAGE, JSON.stringify(state)); }
   catch { toast('자동 저장할 수 없어요. 기록 내보내기로 데이터를 보관해 주세요.'); }
 }
+function removeDemoProfiles() {
+  const characters = Object.entries(state.profiles).filter(([, p]) => p.character.source !== 'demo');
+  if (!characters.length) return false;
+  let removed = false;
+  for (const [id, p] of Object.entries(state.profiles)) {
+    if (p.character.source === 'demo') { delete state.profiles[id]; removed = true; }
+  }
+  if (!state.profiles[state.active]) state.active = characters[0][0];
+  return removed;
+}
 function portrait(character, large = false) {
   const safeImage = typeof character.image === 'string' && /^https:\/\//.test(character.image);
   return `<div class="portrait ${large ? 'large' : ''} ${safeImage ? 'has-image' : ''}">${safeImage ? `<img src="${esc(character.image)}" alt="${esc(character.name)} 캐릭터" referrerpolicy="no-referrer">` : ''}<span class="avatar-hair"></span><span class="avatar-face"><i></i><i></i></span><span class="avatar-body"></span><span class="avatar-sword"></span></div>`;
@@ -250,6 +260,7 @@ function addCharacter(character) {
   } else {
     state.active = character.id; state.profiles[state.active] = createProfile(character);
   }
+  removeDemoProfiles();
   save(); render(); $('#character-dialog').close(); toast(`${character.name}의 기록을 불러왔어요.`);
 }
 $('#add-character').addEventListener('click', () => { $('#lookup-status').textContent = ''; $('#character-name').value = ''; $('#character-dialog').showModal(); });
@@ -301,10 +312,6 @@ $('#lookup-button').addEventListener('click', () => loadApiCharacter($('#charact
 $('#character-card').addEventListener('click', e => {
   if (e.target.closest('[data-refresh-character]')) loadApiCharacter(profile().character.name);
 });
-$('#demo-add').addEventListener('click', () => {
-  if (!state.profiles.demo) state.profiles.demo = createProfile(demo);
-  state.active = 'demo'; save(); render(); $('#character-dialog').close();
-});
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 $('#export-data').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
@@ -315,6 +322,8 @@ setInterval(() => {
   const next = weekKey(), nextMonth = monthKey();
   if (next !== key || nextMonth !== month) { key = next; month = nextMonth; render(); toast('새로운 기록 기간이 시작됐어요.'); }
 }, 30000);
+// 기존 저장 데이터에도 실제 캐릭터가 있으면 예시 프로필을 정리한다.
+if (removeDemoProfiles()) save();
 render();
 updateApiUi();
 if (storageError) toast('저장된 기록을 읽지 못했어요. 현재 화면은 데모입니다.');
