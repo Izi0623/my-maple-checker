@@ -1,0 +1,47 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>카카오톡 보스 알림 설정</title><style>body{font:15px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#35324a;background:#faf9ff;line-height:1.9;max-width:780px;margin:0 auto;padding:32px 20px}h1{font-size:26px}h2{font-size:20px;margin-top:32px}a{color:#6e52c5}code{background:#eeeaf8;padding:3px 5px;border-radius:4px;overflow-wrap:anywhere}.box{padding:18px;background:white;border:1px solid #e6e0f5;border-radius:12px;margin:18px 0}li{margin:10px 0}button,.download{display:inline-block;padding:10px 16px;background:#7770d8;color:white;border-radius:8px;border:0;text-decoration:none}input{font:inherit}</style></head><body>
+<a href="./">← 보스 캘린더로 돌아가기</a><h1>카카오톡으로 보스 약속 알림 받기</h1>
+<p>본인의 <strong>카카오톡 ‘나와의 채팅’</strong>에 보스 약속 1시간 전 알림을 보냅니다. 사이트는 GitHub Pages에 그대로 두고, 무료 Google Apps Script가 브라우저를 닫아도 예약 작업을 실행합니다.</p>
+<div class="box"><strong>처음 한 번 준비할 것</strong><p>카카오 계정, Google 계정, 카카오 앱의 REST API 키가 필요합니다. Nexon API 키와는 별개의 키입니다. 아래 작업은 본인 계정에서 진행해야 합니다. 아직 설정하지 않았다면 카카오톡 알림은 발송되지 않습니다.</p><p>Apps Script는 1분 간격으로 확인하므로 정확히 60분 전 전송을 보장하지 않습니다. Google 실행 지연·서비스 한도·카카오 인증 상태에 따라 늦어지거나 실패할 수 있습니다.</p></div>
+<h2>1. 카카오 앱과 API 권한 만들기</h2><ol>
+<li><a href="https://developers.kakao.com/" target="_blank" rel="noopener noreferrer">Kakao Developers</a>에 로그인하고 <strong>내 애플리케이션 → 애플리케이션 추가</strong>로 개인용 앱을 만드세요. 이미 카카오 앱이 있다면 사용할 수 있습니다.</li>
+<li>앱의 <strong>앱 키</strong> 화면에서 <strong>REST API 키</strong>를 확인하세요. JavaScript 키나 Nexon 키를 사용하지 않습니다.</li>
+<li>웹 플랫폼(또는 앱 키의 웹 플랫폼 설정)에 사이트 도메인 <code>https://izi0623.github.io</code>를 등록하세요.</li>
+<li><strong>카카오 로그인</strong>을 활성화하고 Redirect URI에 아래 주소를 <strong>정확히</strong> 등록하세요.<br><code>https://izi0623.github.io/my-maple-checker/kakao-auth.html</code></li>
+<li><strong>동의항목</strong>에서 <strong>카카오톡 메시지 전송</strong> (<code>talk_message</code>)을 설정하세요. 로그인할 때 메시지 전송에 동의해야 합니다. 개인 개발자는 본인(앱 소유자 또는 앱 팀의 등록된 계정)으로 인증하세요.</li>
+<li>카카오 로그인에서 Client Secret 사용이 활성화되어 있다면 그 값도 확인해 Apps Script 속성에 등록합니다. 키와 토큰을 채팅이나 GitHub 코드에 올리지 마세요.</li>
+</ol><p>공식 안내: <a href="https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api" target="_blank" rel="noopener noreferrer">카카오 로그인 REST API</a> · <a href="https://developers.kakao.com/docs/latest/ko/message/rest-api#default-template-msg-me" target="_blank" rel="noopener noreferrer">나에게 메시지 보내기</a>. 관리 메뉴 명칭은 카카오 콘솔 버전에 따라 달라질 수 있습니다.</p>
+<h2>2. 무료 예약 실행 프로젝트 만들기</h2><ol>
+<li><a href="https://script.google.com/" target="_blank" rel="noopener noreferrer">Google Apps Script</a>에서 <strong>새 프로젝트</strong>를 만드세요. 이름은 ‘메이플 보스 알림’으로 지정하면 됩니다.</li>
+<li>아래 파일을 열고 전체 내용을 복사하여 Apps Script의 <strong>Code.gs</strong> 기본 코드를 지운 자리에 붙여 넣고 저장하세요.<br><a class="download" href="./integrations/kakao-reminders.gs" download="kakao-reminders.gs">예약 실행 코드 다운로드</a> <button type="button" id="copy-code">코드 전체 복사</button><span id="copy-code-status" role="status"></span><pre id="code-fallback" hidden style="max-height:320px;overflow:auto;white-space:pre-wrap;font-size:11px"></pre></li>
+<li>왼쪽 톱니바퀴 <strong>프로젝트 설정</strong>에서 시간대를 <strong>Asia/Seoul</strong>로 지정하고, <strong>스크립트 속성</strong>에 <code>KAKAO_REST_API_KEY</code> = REST API 키를 추가하세요. Client Secret을 사용한다면 <code>KAKAO_CLIENT_SECRET</code> 속성도 추가합니다.</li>
+</ol>
+<h2>3. 본인의 카카오톡에 연결하기</h2><ol>
+<li>편집기로 돌아가 상단 함수 목록에서 <code>getKakaoLoginUrl</code>을 선택하고 <strong>실행</strong>하세요. 처음에는 Google 실행 권한 승인 화면이 나옵니다. 직접 만든 프로젝트 이름과 요청 권한(외부 HTTP 요청, 트리거 실행)을 확인하고 승인하세요. 검증되지 않은 개인 프로젝트 안내가 뜰 수 있습니다.</li>
+<li><strong>실행 로그</strong>에 나온 카카오 로그인 주소를 열고 <strong>본인 카카오 계정</strong>으로 로그인한 뒤 메시지 전송에 동의하세요.</li>
+<li>‘카카오 인증 확인’ 페이지에서 <strong>인증 응답 복사</strong>를 누르세요. Apps Script 프로젝트 설정의 스크립트 속성에 <code>AUTHORIZATION_RESPONSE</code> = 복사한 JSON을 추가합니다.</li>
+<li>편집기에서 <code>connectKakao</code>를 실행하세요. 일회용 인증 코드는 바로 처리해야 합니다. 코드가 만료되면 로그인 주소 생성부터 다시 진행하세요. 성공하면 access/refresh 토큰은 스크립트 속성에 자동 저장되며 인증 응답은 삭제됩니다.</li>
+<li>원하면 <code>sendTestMessage</code>를 직접 실행해 테스트하세요. <strong>실제로 카카오톡에 메시지 1개가 발송</strong>됩니다. ‘나와의 채팅’에 도착하는지 확인하세요.</li>
+</ol>
+<h2>4. 웹 앱 배포 및 예약 실행 켜기</h2><ol>
+<li>오른쪽 위 <strong>배포 → 새 배포</strong>에서 유형을 <strong>웹 앱</strong>으로 선택하세요.</li>
+<li><strong>실행 사용자: 나</strong>, <strong>액세스 권한: 모든 사용자</strong>로 배포하세요. 본인의 로그인 없이 사이트가 동기화할 수 있어야 합니다. 서버는 별도의 무작위 연결 키가 일치할 때만 일정 변경을 허용합니다. 회사/학교 계정에서 이 옵션이 제한되면 개인 Google 계정을 사용해야 합니다.</li>
+<li>생성된 <code>https://script.google.com/macros/s/…/exec</code> 형태의 <strong>웹 앱 URL</strong>을 복사하세요. <code>/dev</code> 주소를 사용하지 않습니다.</li>
+<li>편집기에서 <code>installReminderTrigger</code>를 한 번 실행하세요. 왼쪽 <strong>트리거</strong> 화면에서 <code>sendDueReminders</code>가 1분 간격으로 등록되었는지 확인하세요.</li>
+<li>프로젝트 설정의 스크립트 속성에 자동 생성된 <code>SYNC_KEY</code>를 확인하세요. 이것은 사이트와 예약 실행 서버를 연결하는 키입니다. 다른 사람에게 공유하지 마세요.</li>
+</ol>
+<h2>5. 캘린더에서 연결하기</h2><ol>
+<li><a href="./">메이플 보스 사이트</a>의 <strong>캘린더 → 카카오톡 알림 설정</strong>을 누르세요.</li>
+<li>웹 앱 URL과 <code>SYNC_KEY</code>를 입력하고 <strong>연결하고 일정 전송</strong>을 누르세요.</li>
+<li>‘예약 알림 N개 저장 확인’ 메시지를 확인하세요. 시간이 없는 일정과 이미 지난 일정은 예약하지 않습니다. 이후 일정 추가·변경·삭제는 연결된 탭에서 자동 전송됩니다. 실패 안내가 나오면 <strong>일정 다시 전송</strong>을 누르세요.</li>
+<li>연결 정보는 이 탭의 <code>sessionStorage</code>에 보관하며 카카오 토큰은 Apps Script에만 저장됩니다. 같은 탭 새로고침은 유지되지만 탭을 닫은 후 일정을 수정할 때는 다시 연결해야 합니다. 예약 서버에 이미 전송된 일정은 탭을 닫아도 실행됩니다.</li>
+<li>중지하려면 연결 설정의 <strong>서버 예약 알림 중지</strong>를 누르세요. 카카오톡 API는 친구가 아닌 본인에게만 전송합니다.</li>
+</ol>
+<h2>사용할 때 알아둘 점</h2><ul>
+<li>시간은 한국 시간입니다. 알림은 <code>19:00 ≫ 달빛님 / 하드 루시드</code> 형태의 일정 내용을 포함합니다. 약속까지 1시간이 채 남지 않은 시점에 새로 전송하면 다음 예약 실행 시 알립니다.</li>
+<li>한 일정은 정상 전송 후 반복 발송하지 않습니다. 실패하면 최대 3회 시도합니다. 통신 응답이 유실된 경우 중복 발송 가능성이 있으며 정확한 1회 전달을 보장하지 않습니다.</li>
+<li>refresh 토큰으로 access 토큰을 갱신합니다. 카카오 동의 철회·장기 미사용·refresh 토큰 만료 시 3단계 인증을 다시 진행해야 합니다.</li>
+<li>변경 또는 삭제 후 서버 저장 확인을 받아야 기존 예약도 변경됩니다. 다른 브라우저의 일정과 자동 병합하지 않으므로 일정은 주로 사용하는 한 브라우저에서 관리하세요.</li>
+<li>작동하지 않으면 Apps Script <strong>실행</strong> 화면과 스크립트 속성의 <code>LAST_SEND_ERROR</code>, <code>LAST_SYNC_AT</code>을 확인하세요. 코드 수정 후에는 <strong>배포 관리 → 수정 → 새 버전</strong>으로 웹 앱 배포도 갱신하세요.</li>
+</ul><p><a href="./">캘린더로 돌아가기 →</a></p><script>
+document.querySelector('#copy-code').addEventListener('click',async()=>{try{const response=await fetch('./integrations/kakao-reminders.gs');if(!response.ok)throw new Error();const code=await response.text();try{await navigator.clipboard.writeText(code);document.querySelector('#copy-code-status').textContent=' 복사했어요. Code.gs에 붙여 넣으세요.';}catch{const box=document.querySelector('#code-fallback');box.textContent=code;box.hidden=false;document.querySelector('#copy-code-status').textContent=' 아래 코드를 전체 선택해 복사하세요.';}}catch{document.querySelector('#copy-code-status').textContent=' 다운로드 버튼으로 코드를 받아 주세요.';}});
+</script></body></html>
