@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bosses, createProfile, weekKey, bossSetting, income, totals } from '../public/model.js';
+import { bosses, createProfile, weekKey, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss } from '../public/model.js';
 
 test('한국 시간 목요일 00:00에만 주간 기록이 바뀐다', () => {
   assert.equal(weekKey(new Date('2026-10-14T14:59:59Z')), '2026-10-08');
@@ -28,6 +28,15 @@ test('캐릭터, 난이도, 기본값 변경은 서로 독립적이다', () => {
   a.settings.lotus.tier = '노멀';
   assert.equal(bossSetting(a, lotus).price, 0);
   assert.equal(bossSetting(b, lotus).price, 32512500);
-  assert.equal(b.routine.length, 10);
+  assert.equal(b.routine.length, 12);
   assert.deepEqual(totals(a, '2026-10-08'), { expected: 0, earned: 0, count: 0 });
+});
+
+test('한 주 최대 12개: 해제는 가능하고 목록을 바꾸어도 13번째는 제한된다', () => {
+  const cleared = bosses.slice(0, 12).map(b => b.id);
+  assert.equal(MAX_WEEKLY_BOSSES, 12);
+  assert.equal(canClearBoss(cleared, cleared[0]), true);
+  assert.equal(canClearBoss(cleared, bosses[12].id), false);
+  assert.equal(canClearBoss(cleared.slice(1), bosses[12].id), true);
+  assert.equal(createProfile({ name: '새 캐릭터' }).routine.length, 12);
 });
