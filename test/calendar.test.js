@@ -27,3 +27,13 @@ test('손상된 일정만 제외하고 메모/시간/색상을 안전하게 복�
  assert.equal(events.length,2);assert.equal(events[0].note.length,500);assert.equal(events[0].time,'');assert.notEqual(events[0].color,events[1].color);
  assert.throws(()=>saveEvent(events,{id:'c',date:'2026-10-12',title:' '}));
 });
+
+test('한 칸의 사람/보스/한국어 시간을 24시간 일정으로 변환한다', async () => {
+ const {parseScheduleInput}=await import('../public/calendar-model.js');
+ for (const [input,time] of [['오후 7시','19:00'],['19시','19:00'],['19:00','19:00'],['오후7시30분','19:30'],['오후 7시 반','19:30'],['오전 12시','00:00'],['오후 12시','12:00'],['0시','00:00'],['오전 9시 5분','09:05']]) {
+  assert.deepEqual(parseScheduleInput(`달빛님 / 하드 루시드 / ${input}`),{title:'달빛님 / 하드 루시드',time});
+ }
+ assert.deepEqual(parseScheduleInput('19시 / 달빛님 / 하드 루시드'),{title:'달빛님 / 하드 루시드',time:'19:00'});
+ assert.deepEqual(parseScheduleInput('달빛님 / 하드 루시드'),{title:'달빛님 / 하드 루시드',time:''});
+ for(const text of ['달빛님 / 루시드 / 오후 13시','달빛님 / 루시드 / 25시','달빛님 / 루시드 / 19:60','달빛님 / 루시드 / 19시 / 20시','오후 7시']) assert.throws(()=>parseScheduleInput(text));
+});

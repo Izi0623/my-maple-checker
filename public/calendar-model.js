@@ -1,6 +1,27 @@
 export function todayKey(now = new Date()) {
   return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10);
 }
+export function parseScheduleInput(value) {
+  const text = String(value ?? '').trim();
+  const pattern = /(?<![\d가-힣])(오전|오후)?\s*(\d{1,2})\s*(?::\s*(\d{1,2})|시(?:\s*(?:(\d{1,2})\s*분|(반)))?)(?![\d가-힣])/g;
+  const matches = [...text.matchAll(pattern)];
+  if (matches.length > 1) throw new Error('일정 하나에는 시간을 하나만 적어 주세요.');
+  let time = '', title = text;
+  if (matches.length) {
+    const match = matches[0];
+    let hour = Number(match[2]);
+    const minute = Number(match[3] ?? match[4] ?? (match[5] ? 30 : 0));
+    if (minute > 59 || (match[1] ? hour < 1 || hour > 12 : hour > 23)) {
+      throw new Error('시간을 확인해 주세요. 예: 오후 7시, 19시, 19:30');
+    }
+    if (match[1]) hour = hour % 12 + (match[1] === '오후' ? 12 : 0);
+    time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    title = text.slice(0, match.index) + ' ' + text.slice(match.index + match[0].length);
+  }
+  title = title.split('/').map(part => part.trim().replace(/\s{2,}/g, ' ')).filter(Boolean).join(' / ');
+  if (!title) throw new Error('함께 가는 사람과 보스를 입력해 주세요.');
+  return { title, time };
+}
 export function validDate(date) {
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date.startsWith('0000')) return false;
   const parsed = new Date(`${date}T00:00:00Z`);
