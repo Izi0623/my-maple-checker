@@ -1,12 +1,12 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue } from './model.js?v=20261011-5';
-import { fetchCharacter } from './character-api.js?v=20261011-5';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue } from './model.js?v=20261011-6';
+import { fetchCharacter } from './character-api.js?v=20261011-6';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
 const compact = n => n >= 100000000 ? `${(n / 100000000).toFixed(2)}억` : `${money(Math.floor(n / 10000))}만`;
 const STORAGE = 'maple-weekly-v1';
 const demo = { id: 'demo', name: '메이플 모험가', className: '히어로', world: '스카니아', level: 260, source: 'demo' };
-let state = { characterOrder: [], mesoRate: null, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
+let state = { characterOrder: [], mesoRate: 1500, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
 let nexonApiKey = '';
 let lookupController;
 let storageError = false;
@@ -17,6 +17,7 @@ try {
     for (const [id, p] of Object.entries(saved.profiles)) {
       if (!p?.character?.name || !Array.isArray(p.routine) || !p.weeks || !p.settings) throw new Error('Invalid data');
       const safe = createProfile(p.character);
+      safe.settings = {};
       safe.routine = [...new Set(p.routine)].filter(id => bosses.some(b => b.id === id));
       for (const boss of bosses) {
         const s = p.settings[boss.id];
@@ -36,7 +37,7 @@ try {
       }
       profiles[id] = safe;
     }
-    state = { active: saved.active, profiles, characterOrder: Array.isArray(saved.characterOrder) ? saved.characterOrder : Object.keys(profiles), mesoRate: Number.isSafeInteger(saved.mesoRate) && saved.mesoRate >= 0 && saved.mesoRate <= 1e8 ? saved.mesoRate : null, monthlyWeeks: saved.monthlyWeeks === 5 ? 5 : 4 };
+    state = { active: saved.active, profiles, characterOrder: Array.isArray(saved.characterOrder) ? saved.characterOrder : Object.keys(profiles), mesoRate: Number.isSafeInteger(saved.mesoRate) && saved.mesoRate >= 0 && saved.mesoRate <= 1e8 ? saved.mesoRate : 1500, monthlyWeeks: saved.monthlyWeeks === 5 ? 5 : 4 };
   }
 } catch { storageError = true; }
 let key = weekKey();
@@ -47,6 +48,7 @@ let search = '';
 let editingPrice;
 let editingNote;
 let routineDraft = [];
+let recommendedSettings;
 let toastTimer;
 const profile = () => state.profiles[state.active];
 const periodKey = () => cycle === 'monthly' ? month : key;
@@ -90,7 +92,7 @@ function characterOrder() {
 }
 function renderCharacter() {
   const c = profile().character;
-  $('#character-tabs').innerHTML = characterOrder().map(id => { const p = state.profiles[id]; return `<button class="character-tab ${id === state.active ? 'selected' : ''}" data-character="${esc(id)}" title="${esc(p.character.name)} · Alt + 방향키로 순서 변경"><span class="drag-handle" aria-hidden="true">⠿</span>${esc(p.character.name)}</button>`; }).join('');
+  $('#character-tabs').innerHTML = characterOrder().map(id => { const p = state.profiles[id]; return `<button class="character-tab ${id === state.active ? 'selected' : ''}" data-character="${esc(id)}" title="${esc(p.character.name)}">${esc(p.character.name)}</button>`; }).join('');
   const source = c.source === 'nexon' ? 'Nexon 조회' : c.source === 'demo' ? '데모 캐릭터' : '직접 등록';
   $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button></div>`;
   $('#routine-summary').innerHTML = `<span>저장된 기본 보스</span><strong>${profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) !== 'legacy')).length} 마리</strong>`;
@@ -102,7 +104,7 @@ function renderTotals() {
   $('#monthly-earned').textContent = money(projection.monthly);
   $('#monthly-cash').textContent = state.mesoRate === null ? '메소 시세를 입력하면 현금 가치가 표시돼요.' : `현금 환산 약 ${money(cashValue(projection.monthly, state.mesoRate))}원`;
   $('#monthly-scope').textContent = `전체 ${projection.characters.length}캐릭터 · ${state.monthlyWeeks}주`;
-  $('#monthly-formula').textContent = `선택한 주간 보스를 매주 모두 완료할 때: 전체 주간 ${money(projection.weekly)} 메소 × ${state.monthlyWeeks}주. 월간 보스 결정석은 제외합니다.`;
+  $('#monthly-formula').textContent = `선택한 주간 보스를 매주 모두 완료할 때: 전체 주간 ${money(projection.weekly)} 메소 × ${state.monthlyWeeks}주 + 월간 보스 ${money(projection.monthlyBosses)} 메소 (1회).`;
   $('#monthly-breakdown').innerHTML = projection.characters.map(c => `<div class="monthly-character"><span>${esc(c.name)}</span><strong>${money(c.monthly)} 메소</strong></div>`).join('');
   const count = routine().length;
   const percent = total.expected ? Math.round(total.earned / total.expected * 100) : 0;
@@ -229,12 +231,14 @@ $('#reset-week').addEventListener('click', () => {
   records()[periodKey()] = []; save(); renderTotals(); renderBosses(); toast('선택한 기간의 체크를 초기화했어요.');
 });
 function openRoutine() {
+  recommendedSettings = undefined;
   routineDraft = profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) !== 'legacy'));
+  $('#routine-recommend').disabled = !Number.isInteger(profile().character.level);
   renderRoutine(); $('#routine-dialog').showModal();
 }
 function renderRoutine() {
   $('#routine-selected').textContent = `${routineDraft.length} / ${MAX_WEEKLY_BOSSES}마리 선택`;
-  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').map(b => `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small>${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${bossSetting(profile(), b).tier}</small></label>`).join('');
+  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').map(b => `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small>${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${recommendedSettings?.[b.id]?.tier || bossSetting(profile(), b).tier}</small></label>`).join('');
   updateRoutineUi();
 }
 const weeklyDraft = () => routineDraft.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'weekly'));
@@ -254,53 +258,44 @@ $('#routine-list').addEventListener('change', e => {
 });
 $('#routine-select-all').addEventListener('click', () => { routineDraft = [...new Set([...weeklyDraft(), ...bosses.filter(b => bossCycle(b) === 'weekly').map(b => b.id)])].slice(0, MAX_WEEKLY_BOSSES).concat(routineDraft.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'monthly'))); renderRoutine(); });
 $('#routine-select-none').addEventListener('click', () => { routineDraft = []; renderRoutine(); });
+$('#routine-recommend').addEventListener('click', () => {
+  if (!Number.isInteger(profile().character.level)) return;
+  const suggested = createProfile({ ...profile().character, source: 'manual' });
+  routineDraft = suggested.routine;
+  recommendedSettings = suggested.settings;
+  renderRoutine();
+  toast('레벨 기준 보스와 최고 난이도를 선택했어요. 저장하면 적용됩니다.');
+});
 $('#save-routine').addEventListener('click', () => {
   if (weeklyDraft().length > MAX_WEEKLY_BOSSES) return;
+  if (recommendedSettings) {
+    for (const id of routineDraft) {
+      if (recommendedSettings[id]) profile().settings[id] = { ...profile().settings[id], tier: recommendedSettings[id].tier };
+    }
+  }
   profile().routine = [...routineDraft, ...profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'legacy'))]; save(); render(); $('#routine-dialog').close(); toast('기본 보스 설정을 저장했어요. 다음 주에도 이어집니다.');
 });
 $('#character-tabs').addEventListener('click', e => {
-  if (e.target.closest('.drag-handle')) return;
   const button = e.target.closest('[data-character]'); if (!button) return;
   state.active = button.dataset.character; save(); render();
 });
-let draggingCharacter;
-const characterTabs = $('#character-tabs');
-characterTabs.addEventListener('pointerdown', e => {
-  if (!e.target.closest('.drag-handle') || e.button !== 0) return;
-  const tab = e.target.closest('[data-character]');
-  draggingCharacter = { id: tab.dataset.character, pointerId: e.pointerId, original: [...characterOrder()] };
-  tab.classList.add('dragging');
-  characterTabs.setPointerCapture(e.pointerId);
-  e.preventDefault();
-});
-characterTabs.addEventListener('pointermove', e => {
-  if (!draggingCharacter || e.pointerId !== draggingCharacter.pointerId) return;
-  const bounds = characterTabs.getBoundingClientRect();
-  if (e.clientX < bounds.left + 20) characterTabs.scrollLeft -= 12;
-  if (e.clientX > bounds.right - 20) characterTabs.scrollLeft += 12;
-  const dragged = [...characterTabs.children].find(tab => tab.dataset.character === draggingCharacter.id);
-  const target = [...characterTabs.children].find(tab => tab !== dragged && e.clientX < tab.getBoundingClientRect().left + tab.getBoundingClientRect().width / 2);
-  characterTabs.insertBefore(dragged, target || null);
-});
-function finishCharacterDrag(e) {
-  if (!draggingCharacter || e.pointerId !== draggingCharacter.pointerId) return;
-  state.characterOrder = e.type === 'pointercancel' ? draggingCharacter.original : [...characterTabs.children].map(tab => tab.dataset.character);
-  draggingCharacter = undefined;
-  if (characterTabs.hasPointerCapture(e.pointerId)) characterTabs.releasePointerCapture(e.pointerId);
-  save(); renderCharacter();
+let orderDraft = [];
+function renderOrderEditor() {
+  $('#character-order-list').innerHTML = orderDraft.map((id, i) => `<div class="order-row"><span>${esc(state.profiles[id].character.name)}</span><button type="button" class="button outline" data-order-index="${i}" data-direction="-1" ${i === 0 ? 'disabled' : ''} aria-label="${esc(state.profiles[id].character.name)} 앞으로 이동">↑</button><button type="button" class="button outline" data-order-index="${i}" data-direction="1" ${i === orderDraft.length - 1 ? 'disabled' : ''} aria-label="${esc(state.profiles[id].character.name)} 뒤로 이동">↓</button></div>`).join('');
 }
-characterTabs.addEventListener('pointerup', finishCharacterDrag);
-characterTabs.addEventListener('pointercancel', finishCharacterDrag);
-characterTabs.addEventListener('keydown', e => {
-  if (!e.altKey || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
-  const tab = e.target.closest('[data-character]'); if (!tab) return;
-  e.preventDefault();
-  const order = characterOrder(), index = order.indexOf(tab.dataset.character);
-  const target = index + (e.key === 'ArrowLeft' ? -1 : 1);
-  if (target < 0 || target >= order.length) return;
-  [order[index], order[target]] = [order[target], order[index]];
-  save(); renderCharacter();
-  [...characterTabs.children].find(b => b.dataset.character === order[target]).focus();
+$('#edit-character-order').addEventListener('click', () => {
+  orderDraft = [...characterOrder()]; renderOrderEditor(); $('#character-order-dialog').showModal();
+});
+$('#character-order-list').addEventListener('click', e => {
+  const button = e.target.closest('[data-order-index]'); if (!button) return;
+  const index = Number(button.dataset.orderIndex), target = index + Number(button.dataset.direction);
+  if (target < 0 || target >= orderDraft.length) return;
+  [orderDraft[index], orderDraft[target]] = [orderDraft[target], orderDraft[index]];
+  renderOrderEditor();
+});
+$('#save-character-order').addEventListener('click', () => {
+  state.characterOrder = [...orderDraft]; save(); renderCharacter();
+  $('#character-order-dialog').close(); toast('캐릭터 순서를 저장했어요.');
 });
 $('#meso-rate').addEventListener('input', e => {
   if (!e.target.validity.valid) return;
@@ -323,12 +318,13 @@ function addCharacter(character) {
   removeDemoProfiles();
   save(); render(); $('#character-dialog').close(); toast(`${character.name}의 기록을 불러왔어요.`);
 }
-$('#add-character').addEventListener('click', () => { $('#lookup-status').textContent = ''; $('#character-name').value = ''; $('#character-dialog').showModal(); });
+$('#add-character').addEventListener('click', () => { $('#lookup-status').textContent = ''; $('#character-name').value = ''; $('#character-level').value = ''; $('#character-dialog').showModal(); });
 $('#character-form').addEventListener('submit', e => {
   e.preventDefault();
   const name = $('#character-name').value.trim();
   if (!name) { $('#character-name').focus(); $('#lookup-status').textContent = '직접 등록할 캐릭터 이름을 입력해 주세요.'; return; }
-  addCharacter({ id: `manual:${name}`, name, source: 'manual' });
+  const level = $('#character-level').value === '' ? undefined : Number($('#character-level').value);
+  addCharacter({ id: `manual:${name}`, name, level, source: 'manual' });
 });
 function updateApiUi() {
   $('#api-settings').textContent = nexonApiKey ? 'Nexon API 키 입력됨' : 'Nexon API 연결';

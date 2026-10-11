@@ -624,8 +624,19 @@ export function weekLabel(key) {
   return `${fmt(start)} – ${fmt(end)}`;
 }
 export function createProfile(character) {
-  return { character, routine: [...suggestedRoutine], settings: {}, weeks: {}, months: {} };
+  const profile = { character, routine: [...suggestedRoutine], settings: {}, weeks: {}, months: {} };
+  if (Number.isInteger(character.level) && character.level >= 1 && character.source !== 'demo') {
+    const available = bosses.filter(b => bossCycle(b) !== 'legacy' && character.level >= bossEntryLevels[b.id]);
+    const strongest = b => [...b.tiers].sort((a, c) => (c[1] ?? 0) - (a[1] ?? 0))[0];
+    const weekly = available.filter(b => bossCycle(b) === 'weekly').sort((a, b) => strongest(b)[1] - strongest(a)[1]).slice(0, MAX_WEEKLY_BOSSES);
+    const selected = [...weekly, ...available.filter(b => bossCycle(b) === 'monthly')];
+    profile.routine = selected.map(b => b.id);
+    for (const b of selected) profile.settings[b.id] = { tier: strongest(b)[0], party: 1, prices: {}, note: '' };
+  }
+  return profile;
 }
+// ASSETS.md의 공개 참조 목록에 기재된 입장 요구 레벨. 전투력/선행 퀘스트는 별도 조건이다.
+export const bossEntryLevels = { zakum: 90, magnus: 175, papulatus: 190, pierre: 180, vonbon: 180, queen: 180, vellum: 180, lotus: 190, damien: 190, slime: 210, lucid: 220, will: 235, gloom: 245, vhilla: 250, darknell: 255, seren: 260, kalos: 265, first_adversary: 270, kaling: 275, radiant_malefic_star: 280, bellona: 280, limbo: 285, bardrix: 290, jupiter: 295, black_mage: 255 };
 export function bossSetting(profile, boss) {
   const setting = profile.settings[boss.id] || {};
   const tier = boss.tiers.some(([name]) => name === setting.tier) ? setting.tier : boss.tiers[0][0];
@@ -639,10 +650,12 @@ export function cashValue(mesos, rate) { return Math.floor(mesos / 100000000 * r
 export function monthlyProjection(profiles, weeks = 4) {
   const characters = Object.entries(profiles).filter(([, p]) => p.character.source !== 'demo').map(([id, p]) => {
     const weekly = totals(p, '', 'weekly').expected;
-    return { id, name: p.character.name, weekly, monthly: weekly * weeks };
+    const monthlyBosses = totals(p, '', 'monthly').expected;
+    return { id, name: p.character.name, weekly, monthlyBosses, monthly: weekly * weeks + monthlyBosses };
   });
   const weekly = characters.reduce((sum, c) => sum + c.weekly, 0);
-  return { characters, weekly, monthly: weekly * weeks };
+  const monthlyBosses = characters.reduce((sum, c) => sum + c.monthlyBosses, 0);
+  return { characters, weekly, monthlyBosses, monthly: weekly * weeks + monthlyBosses };
 }
 export function bossCycle(boss) { return boss.cycle || 'weekly'; }
 export function monthKey(now = new Date()) { return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 7); }
