@@ -238,9 +238,11 @@ $('#api-form').addEventListener('submit', e => {
   const enteredKey = $('#api-key').value.trim();
   if (!enteredKey) return;
   lookupController?.abort(); nexonApiKey = enteredKey;
+  $('#api-key').value = '';
   $('#api-dialog').close(); updateApiUi(); toast('이 탭에서 API 키를 사용할 수 있어요. 캐릭터 사진을 불러와 보세요.');
 });
 $('#disconnect-api').addEventListener('click', () => {
+  $('#api-key').value = '';
   lookupController?.abort(); nexonApiKey = ''; $('#api-dialog').close(); updateApiUi(); toast('API 키를 지웠어요.');
 });
 async function loadApiCharacter(name, inDialog = false) {
