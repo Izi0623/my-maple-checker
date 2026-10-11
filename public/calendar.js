@@ -1,4 +1,4 @@
-import { todayKey, monthDates, eventsOnDate, eventColor, saveEvent, parseScheduleInput } from './calendar-model.js?v=20261012-3';
+import { todayKey, monthDates, eventsOnDate, eventColor, saveEvent, parseScheduleInput } from './calendar-model.js?v=20261012-4';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateLabel = date => `${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월 ${Number(date.slice(8))}일`;

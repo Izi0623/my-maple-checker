@@ -1,7 +1,8 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261012-3';
-import { createCalendar } from './calendar.js?v=20261012-3';
-import { sanitizeEvents } from './calendar-model.js?v=20261012-3';
-import { fetchCharacter } from './character-api.js?v=20261012-3';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261012-4';
+import { createReminders } from './reminders.js?v=20261012-4';
+import { createCalendar } from './calendar.js?v=20261012-4';
+import { sanitizeEvents } from './calendar-model.js?v=20261012-4';
+import { fetchCharacter } from './character-api.js?v=20261012-4';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
@@ -398,7 +399,8 @@ setInterval(() => {
 }, 30000);
 // 기존 저장 데이터에도 실제 캐릭터가 있으면 예시 프로필을 정리한다.
 if (removeDemoProfiles()) save();
-const calendar = createCalendar({ getEvents: () => state.calendarEvents, setEvents: events => { state.calendarEvents = events; save(); }, toast });
+const reminders = createReminders({ getEvents: () => state.calendarEvents, toast });
+const calendar = createCalendar({ getEvents: () => state.calendarEvents, setEvents: events => { state.calendarEvents = events; save(); reminders.sync(); }, toast });
 $('#meso-rate').value = state.mesoRate ?? '';
 $('#monthly-weeks').value = String(state.monthlyWeeks);
 render();
