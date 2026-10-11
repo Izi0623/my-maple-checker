@@ -635,6 +635,15 @@ export function bossSetting(profile, boss) {
   return { tier, price, priceSource: setting.prices?.[tier] !== undefined ? 'custom' : boss.priceSources?.[tier] || 'reference', party: Math.min(setting.party || 1, maxParty), maxParty, custom: setting.prices?.[tier] !== undefined };
 }
 export function income(price, party) { if (price === null) return null; return Math.floor(price / Math.max(1, party)); }
+export function cashValue(mesos, rate) { return Math.floor(mesos / 100000000 * rate); }
+export function monthlyProjection(profiles, weeks = 4) {
+  const characters = Object.entries(profiles).filter(([, p]) => p.character.source !== 'demo').map(([id, p]) => {
+    const weekly = totals(p, '', 'weekly').expected;
+    return { id, name: p.character.name, weekly, monthly: weekly * weeks };
+  });
+  const weekly = characters.reduce((sum, c) => sum + c.weekly, 0);
+  return { characters, weekly, monthly: weekly * weeks };
+}
 export function bossCycle(boss) { return boss.cycle || 'weekly'; }
 export function monthKey(now = new Date()) { return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 7); }
 export function totals(profile, key, cycle = 'weekly') {
