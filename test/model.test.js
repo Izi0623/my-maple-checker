@@ -13,7 +13,7 @@ test('완료한 기본 보스만 합산하고 인원별 수익은 소수점 이�
   p.routine = ['lotus', 'damien'];
   p.settings.lotus = { tier: '하드', party: 3, prices: { 하드: 100000001 } };
   p.weeks['2026-10-08'] = ['lotus', 'zakum'];
-  const expected = income(100000001, 3) + 33800000;
+  const expected = income(100000001, 3) + 8750000;
   assert.deepEqual(totals(p, '2026-10-08'), { expected, earned: 33333333, count: 1 });
   assert.deepEqual(totals(p, '2026-10-15'), { expected, earned: 0, count: 0 });
 });
@@ -27,7 +27,7 @@ test('캐릭터, 난이도, 기본값 변경은 서로 독립적이다', () => {
   assert.equal(bossSetting(a, lotus).custom, true);
   a.settings.lotus.tier = '노멀';
   assert.equal(bossSetting(a, lotus).price, 0);
-  assert.equal(bossSetting(b, lotus).price, 32512500);
+  assert.equal(bossSetting(b, lotus).price, 8350000);
   assert.equal(b.routine.length, 12);
   assert.deepEqual(totals(a, '2026-10-08'), { expected: 0, earned: 0, count: 0 });
 });
@@ -39,4 +39,26 @@ test('한 주 최대 12개: 해제는 가능하고 목록을 바꾸어도 13번�
   assert.equal(canClearBoss(cleared, bosses[12].id), false);
   assert.equal(canClearBoss(cleared.slice(1), bosses[12].id), true);
   assert.equal(createProfile({ name: '새 캐릭터' }).routine.length, 12);
+});
+
+test('월간 검은 마법사는 주간 합계와 별도로 보관하고 계산한다', () => {
+  const p = createProfile({ name: '월간 캐릭터' });
+  p.routine = ['zakum', 'black_mage'];
+  p.settings.black_mage = { tier: '하드', prices: { 하드: 1000000000 }, party: 3 };
+  p.weeks['2026-10-08'] = ['zakum'];
+  p.months['2026-10'] = ['black_mage'];
+  assert.deepEqual(totals(p, '2026-10', 'monthly'), { expected: 333333333, earned: 333333333, count: 1 });
+  assert.equal(totals(p, '2026-10-08').count, 1);
+  assert.equal(totals(p, '2026-11', 'monthly').earned, 0);
+});
+test('미확인 가격 처리와 보스별 파티 인원 제한을 검증한다', () => {
+  const p = createProfile({ name: '가격 대기' });
+  p.routine = ['limbo']; p.weeks['2026-10-08'] = ['limbo'];
+  const b = bosses.find(b => b.id === 'limbo');
+  assert.equal(bossSetting(p, b).price, 995000000);
+  assert.equal(bossSetting(p, { ...b, tiers: [['노멀', null]] }).price, null);
+  assert.equal(income(null, 3), null);
+  p.settings.limbo = { prices: { 노멀: 900000000 }, party: 6 };
+  assert.equal(bossSetting(p, b).party, 3);
+  assert.equal(totals(p, '2026-10-08').earned, 300000000);
 });

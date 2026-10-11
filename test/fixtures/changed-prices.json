@@ -1,0 +1,324 @@
+[
+  {
+    "id": "zakum",
+    "name": "자쿰",
+    "tier": "카오스",
+    "price": 4040000,
+    "excelValue": "404만"
+  },
+  {
+    "id": "pierre",
+    "name": "피에르",
+    "tier": "카오스",
+    "price": 4080000,
+    "excelValue": "408만"
+  },
+  {
+    "id": "vonbon",
+    "name": "반반",
+    "tier": "카오스",
+    "price": 4070000,
+    "excelValue": "407만"
+  },
+  {
+    "id": "queen",
+    "name": "블러디퀸",
+    "tier": "카오스",
+    "price": 4070000,
+    "excelValue": "407만"
+  },
+  {
+    "id": "vellum",
+    "name": "벨룸",
+    "tier": "카오스",
+    "price": 4640000,
+    "excelValue": "464만"
+  },
+  {
+    "id": "magnus",
+    "name": "매그너스",
+    "tier": "하드",
+    "price": 4280000,
+    "excelValue": "428만"
+  },
+  {
+    "id": "papulatus",
+    "name": "파풀라투스",
+    "tier": "카오스",
+    "price": 6550000,
+    "excelValue": "655만"
+  },
+  {
+    "id": "lotus",
+    "name": "스우",
+    "tier": "노멀",
+    "price": 8350000,
+    "excelValue": "835만"
+  },
+  {
+    "id": "damien",
+    "name": "데미안",
+    "tier": "노멀",
+    "price": 8750000,
+    "excelValue": "875만"
+  },
+  {
+    "id": "slime",
+    "name": "가디언 엔젤 슬라임",
+    "tier": "노멀",
+    "price": 12700000,
+    "excelValue": "1,270만"
+  },
+  {
+    "id": "lucid",
+    "name": "루시드",
+    "tier": "이지",
+    "price": 14900000,
+    "excelValue": "1,490만"
+  },
+  {
+    "id": "will",
+    "name": "윌",
+    "tier": "이지",
+    "price": 16100000,
+    "excelValue": "1,610만"
+  },
+  {
+    "id": "lucid",
+    "name": "루시드",
+    "tier": "노멀",
+    "price": 17800000,
+    "excelValue": "1,780만"
+  },
+  {
+    "id": "will",
+    "name": "윌",
+    "tier": "노멀",
+    "price": 20500000,
+    "excelValue": "2,050만"
+  },
+  {
+    "id": "gloom",
+    "name": "더스크",
+    "tier": "노멀",
+    "price": 22000000,
+    "excelValue": "2,200만"
+  },
+  {
+    "id": "darknell",
+    "name": "듄켈",
+    "tier": "노멀",
+    "price": 23700000,
+    "excelValue": "2,370만"
+  },
+  {
+    "id": "damien",
+    "name": "데미안",
+    "tier": "하드",
+    "price": 46400000,
+    "excelValue": "4,640만"
+  },
+  {
+    "id": "lotus",
+    "name": "스우",
+    "tier": "하드",
+    "price": 48900000,
+    "excelValue": "4,890만"
+  },
+  {
+    "id": "vhilla",
+    "name": "진 힐라",
+    "tier": "노멀",
+    "price": 67600000,
+    "excelValue": "6,760만"
+  },
+  {
+    "id": "lucid",
+    "name": "루시드",
+    "tier": "하드",
+    "price": 59700000,
+    "excelValue": "5,970만"
+  },
+  {
+    "id": "gloom",
+    "name": "더스크",
+    "tier": "카오스",
+    "price": 66300000,
+    "excelValue": "6,630만"
+  },
+  {
+    "id": "slime",
+    "name": "가디언 엔젤 슬라임",
+    "tier": "카오스",
+    "price": 71300000,
+    "excelValue": "7,130만"
+  },
+  {
+    "id": "will",
+    "name": "윌",
+    "tier": "하드",
+    "price": 73200000,
+    "excelValue": "7,320만"
+  },
+  {
+    "id": "darknell",
+    "name": "듄켈",
+    "tier": "하드",
+    "price": 89600000,
+    "excelValue": "8,960만"
+  },
+  {
+    "id": "vhilla",
+    "name": "진 힐라",
+    "tier": "하드",
+    "price": 100000000,
+    "excelValue": "1억"
+  },
+  {
+    "id": "seren",
+    "name": "선택받은 세렌",
+    "tier": "노멀",
+    "price": 167000000,
+    "excelValue": "1억 6,700만"
+  },
+  {
+    "id": "kalos",
+    "name": "감시자 칼로스",
+    "tier": "이지",
+    "price": 238000000,
+    "excelValue": "2억 3,800만"
+  },
+  {
+    "id": "first_adversary",
+    "name": "최초의 대적자",
+    "tier": "이지",
+    "price": 261000000,
+    "excelValue": "2억 6,100만"
+  },
+  {
+    "id": "seren",
+    "name": "선택받은 세렌",
+    "tier": "하드",
+    "price": 302000000,
+    "excelValue": "3억 200만"
+  },
+  {
+    "id": "kaling",
+    "name": "카링",
+    "tier": "이지",
+    "price": 320000000,
+    "excelValue": "3억 2,000만"
+  },
+  {
+    "id": "bellona",
+    "name": "벨로나",
+    "tier": "이지",
+    "price": 396000000,
+    "excelValue": "3억 9,600만"
+  },
+  {
+    "id": "kalos",
+    "name": "감시자 칼로스",
+    "tier": "노멀",
+    "price": 479000000,
+    "excelValue": "4억 7,900만"
+  },
+  {
+    "id": "first_adversary",
+    "name": "최초의 대적자",
+    "tier": "노멀",
+    "price": 532000000,
+    "excelValue": "5억 3,200만"
+  },
+  {
+    "id": "lotus",
+    "name": "스우",
+    "tier": "익스트림",
+    "price": 545000000,
+    "excelValue": "5억 4,500만"
+  },
+  {
+    "id": "kaling",
+    "name": "카링",
+    "tier": "노멀",
+    "price": 593000000,
+    "excelValue": "5억 9,300만"
+  },
+  {
+    "id": "radiant_malefic_star",
+    "name": "찬란한 흉성",
+    "tier": "노멀",
+    "price": 576000000,
+    "excelValue": "5억 7,600만"
+  },
+  {
+    "id": "bellona",
+    "name": "벨로나",
+    "tier": "노멀",
+    "price": 824000000,
+    "excelValue": "8억 2,400만"
+  },
+  {
+    "id": "limbo",
+    "name": "림보",
+    "tier": "노멀",
+    "price": 995000000,
+    "excelValue": "9억 9,500만"
+  },
+  {
+    "id": "kalos",
+    "name": "감시자 칼로스",
+    "tier": "카오스",
+    "price": 1230000000,
+    "excelValue": "12억 3,000만"
+  },
+  {
+    "id": "bardrix",
+    "name": "발드릭스",
+    "tier": "노멀",
+    "price": 1320000000,
+    "excelValue": "13억 2,000만"
+  },
+  {
+    "id": "first_adversary",
+    "name": "최초의 대적자",
+    "tier": "하드",
+    "price": 1390000000,
+    "excelValue": "13억 9,000만"
+  },
+  {
+    "id": "jupiter",
+    "name": "유피테르",
+    "tier": "노멀",
+    "price": 1560000000,
+    "excelValue": "15억 6,000만"
+  },
+  {
+    "id": "kaling",
+    "name": "카링",
+    "tier": "하드",
+    "price": 1560000000,
+    "excelValue": "15억 6,000만"
+  },
+  {
+    "id": "seren",
+    "name": "선택받은 세렌",
+    "tier": "익스트림",
+    "price": 1840000000,
+    "excelValue": "18억 4,000만"
+  },
+  {
+    "id": "black_mage",
+    "name": "검은 마법사",
+    "tier": "하드",
+    "price": 465000000,
+    "excelValue": "4억 6,500만"
+  },
+  {
+    "id": "black_mage",
+    "name": "검은 마법사",
+    "tier": "익스트림",
+    "price": 5680000000,
+    "excelValue": "56억 8,000만"
+  }
+]
