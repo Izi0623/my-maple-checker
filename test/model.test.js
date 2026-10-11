@@ -13,7 +13,7 @@ test('완료한 기본 보스만 합산하고 인원별 수익은 소수점 이�
   p.routine = ['lotus', 'damien'];
   p.settings.lotus = { tier: '하드', party: 3, prices: { 하드: 100000001 } };
   p.weeks['2026-10-08'] = ['lotus', 'zakum'];
-  const expected = income(100000001, 3) + 8750000;
+  const expected = income(100000001, 3) + 46400000;
   assert.deepEqual(totals(p, '2026-10-08'), { expected, earned: 33333333, count: 1 });
   assert.deepEqual(totals(p, '2026-10-15'), { expected, earned: 0, count: 0 });
 });
@@ -27,7 +27,7 @@ test('캐릭터, 난이도, 기본값 변경은 서로 독립적이다', () => {
   assert.equal(bossSetting(a, lotus).custom, true);
   a.settings.lotus.tier = '노멀';
   assert.equal(bossSetting(a, lotus).price, 0);
-  assert.equal(bossSetting(b, lotus).price, 8350000);
+  assert.equal(bossSetting(b, lotus).price, 48900000);
   assert.equal(b.routine.length, 12);
   assert.deepEqual(totals(a, '2026-10-08'), { expected: 0, earned: 0, count: 0 });
 });
@@ -53,12 +53,27 @@ test('월간 검은 마법사는 주간 합계와 별도로 보관하고 계산�
 });
 test('미확인 가격 처리와 보스별 파티 인원 제한을 검증한다', () => {
   const p = createProfile({ name: '가격 대기' });
+  p.settings.limbo = { tier: '노멀' };
   p.routine = ['limbo']; p.weeks['2026-10-08'] = ['limbo'];
   const b = bosses.find(b => b.id === 'limbo');
   assert.equal(bossSetting(p, b).price, 995000000);
   assert.equal(bossSetting(p, { ...b, tiers: [['노멀', null]] }).price, null);
   assert.equal(income(null, 3), null);
-  p.settings.limbo = { prices: { 노멀: 900000000 }, party: 6 };
+  p.settings.limbo = { tier: '노멀', prices: { 노멀: 900000000 }, party: 6 };
   assert.equal(bossSetting(p, b).party, 3);
   assert.equal(totals(p, '2026-10-08').earned, 300000000);
+});
+
+test('처음 선택하는 난이도는 하드/카오스를 우선하고 직접 지정한 난이도는 유지한다', () => {
+ const p=createProfile({name:'신규'});
+ for(const [id,tier] of [['gloom','카오스'],['lucid','하드'],['will','하드'],['slime','카오스']]) assert.equal(bossSetting(p,bosses.find(b=>b.id===id)).tier,tier);
+ p.settings.lucid={tier:'이지'};assert.equal(bossSetting(p,bosses.find(b=>b.id==='lucid')).tier,'이지');
+});
+test('모두 체크는 전체 루틴에 적용하고 12개 제한 위반 시 기존 기록을 유지한다', async () => {
+ const {setRoutineClears}=await import('../public/model.js');
+ const p=createProfile({name:'일괄체크'});p.weeks['2026-10-08']=['hilla'];
+ assert.ok(setRoutineClears(p,'2026-10-08',true));assert.equal(p.weeks['2026-10-08'].length,13);
+ assert.ok(setRoutineClears(p,'2026-10-08',false));assert.deepEqual(p.weeks['2026-10-08'],['hilla']);
+ p.weeks['2026-10-08']=['limbo'];
+ assert.equal(setRoutineClears(p,'2026-10-08',true),false);assert.deepEqual(p.weeks['2026-10-08'],['limbo']);
 });

@@ -639,11 +639,14 @@ export function createProfile(character) {
 export const bossEntryLevels = { zakum: 90, magnus: 175, papulatus: 190, pierre: 180, vonbon: 180, queen: 180, vellum: 180, lotus: 190, damien: 190, slime: 210, lucid: 220, will: 235, gloom: 245, vhilla: 250, darknell: 255, seren: 260, kalos: 265, first_adversary: 270, kaling: 275, radiant_malefic_star: 280, bellona: 280, limbo: 285, bardrix: 290, jupiter: 295, black_mage: 255 };
 export function bossSetting(profile, boss) {
   const setting = profile.settings[boss.id] || {};
-  const tier = boss.tiers.some(([name]) => name === setting.tier) ? setting.tier : boss.tiers[0][0];
+  const tier = boss.tiers.some(([name]) => name === setting.tier) ? setting.tier : defaultBossTier(boss);
   const defaultPrice = boss.tiers.find(([name]) => name === tier)[1];
   const price = setting.prices?.[tier] ?? defaultPrice;
   const maxParty = boss.maxParty || (boss.id === 'lotus' && tier === '익스트림' ? 2 : 6);
   return { tier, price, priceSource: setting.prices?.[tier] !== undefined ? 'custom' : boss.priceSources?.[tier] || 'reference', party: Math.min(setting.party || 1, maxParty), maxParty, custom: setting.prices?.[tier] !== undefined };
+}
+export function defaultBossTier(boss) {
+  return boss.tiers.find(([tier]) => tier === '카오스')?.[0] || boss.tiers.find(([tier]) => tier === '하드')?.[0] || boss.tiers[0][0];
 }
 export function income(price, party) { if (price === null) return null; return Math.floor(price / Math.max(1, party)); }
 export function cashValue(mesos, rate) { return Math.floor(mesos / 100000000 * rate); }
@@ -668,4 +671,14 @@ export function totals(profile, key, cycle = 'weekly') {
     if (clears.includes(boss.id)) { if (value !== null) sum.earned += value; sum.count += 1; }
     return sum;
   }, { expected: 0, earned: 0, count: 0 });
+}
+export function setRoutineClears(profile, key, checked, cycle = 'weekly') {
+  const records = cycle === 'monthly' ? profile.months : profile.weeks;
+  const selected = bosses.filter(b => profile.routine.includes(b.id) && bossCycle(b) === cycle).map(b => b.id);
+  const next = new Set(records[key] || []);
+  for (const id of selected) checked ? next.add(id) : next.delete(id);
+  const weeklyCount = [...next].filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'weekly')).length;
+  if (cycle === 'weekly' && weeklyCount > MAX_WEEKLY_BOSSES) return false;
+  records[key] = [...next];
+  return true;
 }
