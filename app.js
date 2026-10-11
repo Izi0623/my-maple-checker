@@ -1,7 +1,7 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261012-2';
-import { createCalendar } from './calendar.js?v=20261012-2';
-import { sanitizeEvents } from './calendar-model.js?v=20261012-2';
-import { fetchCharacter } from './character-api.js?v=20261012-2';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261012-3';
+import { createCalendar } from './calendar.js?v=20261012-3';
+import { sanitizeEvents } from './calendar-model.js?v=20261012-3';
+import { fetchCharacter } from './character-api.js?v=20261012-3';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
