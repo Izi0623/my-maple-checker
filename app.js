@@ -1,12 +1,14 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue } from './model.js?v=20261011-6';
-import { fetchCharacter } from './character-api.js?v=20261011-6';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261012-1';
+import { createCalendar } from './calendar.js?v=20261012-1';
+import { sanitizeEvents } from './calendar-model.js?v=20261012-1';
+import { fetchCharacter } from './character-api.js?v=20261012-1';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
 const compact = n => n >= 100000000 ? `${(n / 100000000).toFixed(2)}억` : `${money(Math.floor(n / 10000))}만`;
 const STORAGE = 'maple-weekly-v1';
 const demo = { id: 'demo', name: '메이플 모험가', className: '히어로', world: '스카니아', level: 260, source: 'demo' };
-let state = { characterOrder: [], mesoRate: 1500, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
+let state = { calendarEvents: [], characterOrder: [], mesoRate: 1500, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
 let nexonApiKey = '';
 let lookupController;
 let storageError = false;
@@ -37,7 +39,7 @@ try {
       }
       profiles[id] = safe;
     }
-    state = { active: saved.active, profiles, characterOrder: Array.isArray(saved.characterOrder) ? saved.characterOrder : Object.keys(profiles), mesoRate: Number.isSafeInteger(saved.mesoRate) && saved.mesoRate >= 0 && saved.mesoRate <= 1e8 ? saved.mesoRate : 1500, monthlyWeeks: saved.monthlyWeeks === 5 ? 5 : 4 };
+    state = { calendarEvents: sanitizeEvents(saved.calendarEvents), active: saved.active, profiles, characterOrder: Array.isArray(saved.characterOrder) ? saved.characterOrder : Object.keys(profiles), mesoRate: Number.isSafeInteger(saved.mesoRate) && saved.mesoRate >= 0 && saved.mesoRate <= 1e8 ? saved.mesoRate : 1500, monthlyWeeks: saved.monthlyWeeks === 5 ? 5 : 4 };
   }
 } catch { storageError = true; }
 let key = weekKey();
@@ -105,7 +107,7 @@ function renderTotals() {
   $('#monthly-cash').textContent = state.mesoRate === null ? '메소 시세를 입력하면 현금 가치가 표시돼요.' : `현금 환산 약 ${money(cashValue(projection.monthly, state.mesoRate))}원`;
   $('#monthly-scope').textContent = `전체 ${projection.characters.length}캐릭터 · ${state.monthlyWeeks}주`;
   $('#monthly-formula').textContent = `선택한 주간 보스를 매주 모두 완료할 때: 전체 주간 ${money(projection.weekly)} 메소 × ${state.monthlyWeeks}주 + 월간 보스 ${money(projection.monthlyBosses)} 메소 (1회).`;
-  $('#monthly-breakdown').innerHTML = projection.characters.map(c => `<div class="monthly-character"><span>${esc(c.name)}</span><strong>${money(c.monthly)} 메소</strong></div>`).join('');
+  $('#monthly-breakdown').innerHTML = [...projection.characters].sort((a, b) => a.monthly - b.monthly).map(c => `<div class="monthly-character"><span>${esc(c.name)}</span><strong>${money(c.monthly)} 메소</strong></div>`).join('');
   const count = routine().length;
   const percent = total.expected ? Math.round(total.earned / total.expected * 100) : 0;
   $('#earned').textContent = money(total.earned);
@@ -121,11 +123,17 @@ function renderTotals() {
   $('#filter-pending-count').textContent = count - total.count;
   $('#filter-done-count').textContent = total.count;
   const unknown = bosses.filter(b => routine().includes(b.id) && bossSetting(profile(), b).price === null).length;
+  $('#bulk-check-label').hidden = cycle !== 'weekly';
+  const checkedCount = routine().filter(id => clears().includes(id)).length;
+  $('#check-all-bosses').checked = count > 0 && checkedCount === count;
+  $('#check-all-bosses').indeterminate = checkedCount > 0 && checkedCount < count;
+  $('#check-all-bosses').disabled = count === 0;
   $('#price-status').textContent = unknown ? `가격 확인이 필요한 보스 ${unknown}개는 수익 합산에서 제외됩니다.` : '기본 가격은 제공하신 엑셀의 변경 가격을 적용했어요. 엑셀에 없는 난이도는 공개 참고값으로 구분합니다.';
 }
+const bossIncome = b => { const s = bossSetting(profile(), b); return income(s.price, s.party) ?? Infinity; };
 function renderBosses() {
   const p = profile();
-  const visible = bosses.filter(b => p.routine.includes(b.id) && bossCycle(b) === cycle && b.name.includes(search) && (filter === 'all' || (filter === 'done' ? clears().includes(b.id) : !clears().includes(b.id))));
+  const visible = bosses.filter(b => p.routine.includes(b.id) && bossCycle(b) === cycle && b.name.includes(search) && (filter === 'all' || (filter === 'done' ? clears().includes(b.id) : !clears().includes(b.id)))).sort((a, b) => bossIncome(a) - bossIncome(b));
   $('#boss-list').innerHTML = visible.length ? visible.map(b => {
     const s = bossSetting(p, b);
     const done = clears().includes(b.id);
@@ -134,14 +142,19 @@ function renderBosses() {
   }).join('') : `<div class="empty-state"><span>✧</span><h3>${routine().length === 0 ? '나만의 보스 루틴을 만들어 보세요' : filter === 'done' ? '아직 클리어한 보스가 없어요' : '표시할 보스가 없어요'}</h3><p>${routine().length === 0 ? '기본 보스 설정에서 매주 잡는 보스를 선택해 주세요.' : '필터나 검색어를 바꾸어 보세요.'}</p></div>`;
 }
 function render() {
+  $('.week-chip').hidden = cycle === 'calendar';
+  $('#boss-view').hidden = cycle === 'calendar';
+  $('#calendar-panel').hidden = cycle !== 'calendar';
+  renderCharacter();
+  if (cycle === 'calendar') { calendar.render(); return; }
   const monthly = cycle === 'monthly';
   $('#week-label').textContent = monthly ? `${month.slice(0, 4)}년 ${Number(month.slice(5))}월` : weekLabel(key);
   $('#period-range-label').textContent = monthly ? '이번 달 보스 기록' : '이번 주 보스 기록';
   $('.reset-label').textContent = monthly ? '매월 1일 00:00 초기화 · 한국 시간' : '매주 목요일 00:00 초기화 · 한국 시간';
   $('#period-earning-label').textContent = monthly ? '월간 보스 획득 수익' : '이번 주 획득 수익';
   $('#period-title').textContent = monthly ? '월간 보스 체크리스트' : '주간 보스 체크리스트';
-  $('#period-help').textContent = monthly ? '검은 마법사는 월간 기록이며 주간 12개 제한에 포함되지 않아요.' : '이번 주 처치한 보스를 체크해 주세요. 캐릭터당 최대 12개입니다.';
-  renderCharacter(); renderTotals(); renderBosses();
+  $('#period-help').textContent = monthly ? '검은 마법사는 월간 기록이며 주간 12개 제한에 포함되지 않아요.' : '캐릭터당 주간 최대 12개 · 내 수익이 낮은 순서로 표시돼요.';
+  renderTotals(); renderBosses();
 }
 $('#period-tabs').addEventListener('click', e => {
   const button = e.target.closest('[data-cycle]'); if (!button) return;
@@ -156,6 +169,11 @@ function updateSetting(id, values) {
   p.settings[id] = { ...p.settings[id], ...values };
   save(); renderTotals(); renderBosses();
 }
+$('#check-all-bosses').addEventListener('change', e => {
+  if (!setRoutineClears(profile(), periodKey(), e.target.checked, cycle)) toast('기존 처치 기록을 포함해 한 주 최대 12개까지만 체크할 수 있어요.');
+  else save();
+  renderTotals(); renderBosses();
+});
 $('#boss-list').addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.clear) {
@@ -238,7 +256,7 @@ function openRoutine() {
 }
 function renderRoutine() {
   $('#routine-selected').textContent = `${routineDraft.length} / ${MAX_WEEKLY_BOSSES}마리 선택`;
-  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').map(b => `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small>${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${recommendedSettings?.[b.id]?.tier || bossSetting(profile(), b).tier}</small></label>`).join('');
+  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').sort((a, b) => bossIncome(a) - bossIncome(b)).map(b => `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small>${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${recommendedSettings?.[b.id]?.tier || bossSetting(profile(), b).tier}</small></label>`).join('');
   updateRoutineUi();
 }
 const weeklyDraft = () => routineDraft.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'weekly'));
@@ -380,6 +398,7 @@ setInterval(() => {
 }, 30000);
 // 기존 저장 데이터에도 실제 캐릭터가 있으면 예시 프로필을 정리한다.
 if (removeDemoProfiles()) save();
+const calendar = createCalendar({ getEvents: () => state.calendarEvents, setEvents: events => { state.calendarEvents = events; save(); }, toast });
 $('#meso-rate').value = state.mesoRate ?? '';
 $('#monthly-weeks').value = String(state.monthlyWeeks);
 render();
