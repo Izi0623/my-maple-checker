@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#7770d8">
+  <meta name="description" content="내 메이플스토리 캐릭터의 주간 보스 루틴과 결정석 수익을 한눈에 관리하세요.">
+  <title>메이플 위클리 · 나의 보스 기록</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="header"><div class="header-inner"><a class="brand" href="./" aria-label="메이플 위클리 홈"><span class="brand-icon">✦</span><span>메이플<span class="brand-light"> 위클리</span><small>MAPLE WEEKLY</small></span></a><span class="header-tag"><span class="live-dot"></span>나의 작은 메이플 기록장</span></div></header>
+  <main>
+    <section class="intro"><div><div class="eyebrow">YOUR WEEKLY ADVENTURE</div><h1>이번 주도, 차근차근.</h1><p>보스는 하나씩 클리어하고, 메소는 차곡차곡 모아봐요.</p></div><div class="week-chip"><span>↻</span><div><small>이번 주 보스 기록</small><strong id="week-label"></strong><span class="reset-label">매주 목요일 00:00 초기화 · 한국 시간</span></div></div></section>
+    <div class="workspace">
+      <aside>
+        <section class="panel character-panel"><div class="section-heading"><h2>내 캐릭터</h2><button class="icon-button" id="add-character" aria-label="캐릭터 추가">＋</button></div><div id="character-tabs" class="character-tabs"></div><div id="character-card"></div><div class="aside-divider"></div><div class="aside-label">MY WEEKLY ROUTINE</div><h3>매주 만나는 보스들</h3><p class="muted small">자주 잡는 보스를 저장해 두면<br>다음 주에도 같은 목록으로 시작해요.</p><button class="button outline full" id="edit-routine"><span>⚙</span> 기본 보스 설정</button><div id="routine-summary" class="routine-summary"></div></section>
+        <section class="tip-card"><span class="tip-icon">✧</span><h3>모험가를 위한 작은 팁</h3><p>처치한 보스를 체크하면 수익이 바로 반영돼요. 파티 보스는 인원수만큼 결정석 수익을 나눠 계산해요.</p><span class="tip-foot">오늘도 즐거운 메이플 라이프!</span></section>
+        <p class="storage-note">▣ 기록은 이 브라우저에 자동 저장돼요.<br>데이터 삭제 시 기록도 사라집니다.</p>
+      </aside>
+      <div class="content">
+        <section class="earnings-card"><div class="earnings-top"><span class="light-label">이번 주 획득 수익</span><span class="earnings-badge">결정석 수익</span></div><div class="earnings-number"><strong id="earned">0</strong><span>메소</span></div><div class="earnings-bottom"><span>목표 수익 <strong id="expected">0</strong> 메소</span><span id="earnings-percent">0% 달성</span></div><div class="progress-track"><div id="progress-fill"></div></div><div class="crystal-art" aria-hidden="true"><div class="crystal one"></div><div class="crystal two"></div><span>✦</span></div></section>
+        <section class="stats-row"><div class="stat"><span class="stat-icon lavender">✓</span><div><span>클리어한 보스</span><strong><span id="clear-count">0</span><small id="total-count"> / 10</small></strong></div></div><div class="stat"><span class="stat-icon mint">⚑</span><div><span>남은 보스</span><strong id="remaining">10</strong></div></div><div class="stat"><span class="stat-icon peach">◇</span><div><span>남은 예상 수익</span><strong id="remaining-income" class="smaller-stat"></strong></div></div></section>
+        <section class="panel boss-panel"><div class="boss-heading"><div><h2>주간 보스 체크리스트 <span id="boss-count" class="count-pill">10</span></h2><p class="muted small">이번 주 처치한 보스를 체크해 주세요.</p></div><button class="text-button" id="reset-week">↻ 체크 초기화</button></div><div class="list-controls"><div class="filters" role="group" aria-label="보스 표시 필터"><button data-filter="all" class="active">전체 <span id="filter-all-count"></span></button><button data-filter="pending">미완료 <span id="filter-pending-count"></span></button><button data-filter="done">완료 <span id="filter-done-count"></span></button></div><label class="boss-search"><span>⌕</span><input id="boss-search" placeholder="보스 이름 검색" aria-label="보스 이름 검색"></label></div><div class="price-note"><span>ⓘ</span><p>결정석 가격은 <strong>최신 검증 전 참고값</strong>이에요. 실제 판매가에 맞게 금액을 수정해 주세요.</p></div><div class="table-head"><span>보스 / 난이도</span><span>파티 인원</span><span>내 수익 (메소)</span></div><div id="boss-list"></div><div class="list-footer"><span>✓ 체크할 때마다 자동 저장</span><button class="text-button" id="add-boss">＋ 보스 목록 편집</button></div></section>
+        <div class="bottom-note"><span>✦</span> 작은 기록이 모여, 더 큰 모험이 됩니다.</div>
+      </div>
+    </div>
+  </main>
+  <footer><span>메이플 위클리</span><p>MapleStory is a trademark of NEXON. 이 서비스는 비공식 팬 프로젝트입니다.</p><button class="text-button" id="export-data">기록 내보내기 ↓</button></footer>
+  <dialog id="character-dialog"><form id="character-form"><div class="dialog-heading"><div><span class="eyebrow">YOUR CHARACTER</span><h2>나의 캐릭터를 등록해 볼까요?</h2></div><button type="button" class="icon-button close-dialog" aria-label="닫기">×</button></div><p class="muted">캐릭터 이름으로 나만의 보스 기록을 시작해요. 게임 정보는 자동으로 조회하지 않습니다.</p><label class="field-label" for="character-name">캐릭터 이름</label><div class="search-form"><input id="character-name" maxlength="20" required autocomplete="off" placeholder="캐릭터 이름을 입력해 주세요"><button type="submit" class="button primary" id="manual-add">등록</button></div><p id="lookup-status" role="status" class="lookup-status"></p><div class="manual-box"><strong>먼저 둘러보고 싶다면</strong><p>데모 캐릭터로 보스 체크와 메모를 체험해 보세요.</p><div class="manual-actions"><button type="button" class="text-button" id="demo-add">데모 둘러보기 →</button></div></div></form></dialog>
+  <dialog id="routine-dialog"><div class="dialog-heading"><div><span class="eyebrow">MY WEEKLY ROUTINE</span><h2>나의 기본 보스 설정</h2></div><button class="icon-button close-dialog" aria-label="닫기">×</button></div><p class="muted">매주 잡는 보스를 선택해 주세요. 난이도와 파티 인원은 목록에서 바꿀 수 있어요.</p><div class="routine-tools"><span id="routine-selected"></span><button class="text-button" id="routine-select-all">전체 선택</button><button class="text-button" id="routine-select-none">전체 해제</button></div><div id="routine-list"></div><div class="dialog-footer"><button class="button outline close-dialog">취소</button><button class="button primary" id="save-routine">기본값 저장</button></div></dialog>
+  <dialog id="price-dialog"><form id="price-form"><div class="dialog-heading"><h2 id="price-title">결정석 가격 수정</h2><button type="button" class="icon-button close-dialog" aria-label="닫기">×</button></div><p class="muted">파티 인원으로 나누기 전 결정석 1개 가격을 입력하세요.</p><label class="field-label" for="price-input">결정석 판매가 (메소)</label><input id="price-input" type="number" required min="0" max="1000000000000" step="1"><p class="muted small">캐릭터와 난이도별로 저장돼요. 다른 캐릭터에는 적용되지 않습니다.</p><div class="dialog-footer"><button type="button" class="button outline" id="price-default">참고값 복원</button><button type="submit" class="button primary">가격 저장</button></div></form></dialog>
+  <dialog id="note-dialog" aria-labelledby="note-title"><form id="note-form"><div class="dialog-heading"><h2 id="note-title">동행 메모</h2><button type="button" class="icon-button close-dialog" aria-label="닫기">×</button></div><p class="muted">함께 가는 사람이나 약속 시간을 적어 두세요. 메모는 다음 주에도 유지돼요.</p><label class="field-label" for="note-input">함께 가는 사람 / 메모</label><textarea id="note-input" rows="5" maxlength="500" placeholder="예: 길드원 달빛님, 단풍님과 함께
+매주 금요일 저녁 9시 · 디스코드에서 만나기"></textarea><div class="note-hint"><span>이 캐릭터의 보스 메모로 저장돼요.</span><span id="note-count">0 / 500</span></div><div class="dialog-footer"><button type="button" class="button outline" id="delete-note">메모 삭제</button><button type="button" class="button outline close-dialog">취소</button><button type="submit" class="button primary">메모 저장</button></div></form></dialog>
+  <div id="toast" role="status"></div>
+</body>
+</html>

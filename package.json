@@ -1,0 +1,15 @@
+{
+  "name": "my-maple-checker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "start": "node --env-file-if-exists=.env server.js",
+    "test": "node --test",
+    "deploy:pages": "bash scripts/deploy-pages.sh"
+  }
+}
