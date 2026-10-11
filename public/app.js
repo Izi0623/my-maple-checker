@@ -1,12 +1,12 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey } from './model.js?v=20261011-3';
-import { fetchCharacter } from './character-api.js?v=20261011-3';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue } from './model.js?v=20261011-5';
+import { fetchCharacter } from './character-api.js?v=20261011-5';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
 const compact = n => n >= 100000000 ? `${(n / 100000000).toFixed(2)}억` : `${money(Math.floor(n / 10000))}만`;
 const STORAGE = 'maple-weekly-v1';
 const demo = { id: 'demo', name: '메이플 모험가', className: '히어로', world: '스카니아', level: 260, source: 'demo' };
-let state = { active: 'demo', profiles: { demo: createProfile(demo) } };
+let state = { characterOrder: [], mesoRate: null, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
 let nexonApiKey = '';
 let lookupController;
 let storageError = false;
@@ -36,7 +36,7 @@ try {
       }
       profiles[id] = safe;
     }
-    state = { active: saved.active, profiles };
+    state = { active: saved.active, profiles, characterOrder: Array.isArray(saved.characterOrder) ? saved.characterOrder : Object.keys(profiles), mesoRate: Number.isSafeInteger(saved.mesoRate) && saved.mesoRate >= 0 && saved.mesoRate <= 1e8 ? saved.mesoRate : null, monthlyWeeks: saved.monthlyWeeks === 5 ? 5 : 4 };
   }
 } catch { storageError = true; }
 let key = weekKey();
@@ -84,15 +84,26 @@ function bossPortrait(boss, small = false) {
 document.addEventListener('error', e => {
   if (e.target instanceof HTMLImageElement) e.target.parentElement.classList.add('image-failed');
 }, true);
+function characterOrder() {
+  state.characterOrder = [...new Set([...state.characterOrder, ...Object.keys(state.profiles)])].filter(id => state.profiles[id]);
+  return state.characterOrder;
+}
 function renderCharacter() {
   const c = profile().character;
-  $('#character-tabs').innerHTML = Object.entries(state.profiles).map(([id, p]) => `<button class="character-tab ${id === state.active ? 'selected' : ''}" data-character="${esc(id)}">${esc(p.character.name)}</button>`).join('');
+  $('#character-tabs').innerHTML = characterOrder().map(id => { const p = state.profiles[id]; return `<button class="character-tab ${id === state.active ? 'selected' : ''}" data-character="${esc(id)}" title="${esc(p.character.name)} · Alt + 방향키로 순서 변경"><span class="drag-handle" aria-hidden="true">⠿</span>${esc(p.character.name)}</button>`; }).join('');
   const source = c.source === 'nexon' ? 'Nexon 조회' : c.source === 'demo' ? '데모 캐릭터' : '직접 등록';
   $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button></div>`;
   $('#routine-summary').innerHTML = `<span>저장된 기본 보스</span><strong>${profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) !== 'legacy')).length} 마리</strong>`;
 }
 function renderTotals() {
   const total = totals(profile(), periodKey(), cycle);
+  $('#earned-cash').textContent = state.mesoRate === null ? '메소 시세를 입력하면 현금 가치가 표시돼요.' : `현금 환산 약 ${money(cashValue(total.earned, state.mesoRate))}원`;
+  const projection = monthlyProjection(state.profiles, state.monthlyWeeks);
+  $('#monthly-earned').textContent = money(projection.monthly);
+  $('#monthly-cash').textContent = state.mesoRate === null ? '메소 시세를 입력하면 현금 가치가 표시돼요.' : `현금 환산 약 ${money(cashValue(projection.monthly, state.mesoRate))}원`;
+  $('#monthly-scope').textContent = `전체 ${projection.characters.length}캐릭터 · ${state.monthlyWeeks}주`;
+  $('#monthly-formula').textContent = `선택한 주간 보스를 매주 모두 완료할 때: 전체 주간 ${money(projection.weekly)} 메소 × ${state.monthlyWeeks}주. 월간 보스 결정석은 제외합니다.`;
+  $('#monthly-breakdown').innerHTML = projection.characters.map(c => `<div class="monthly-character"><span>${esc(c.name)}</span><strong>${money(c.monthly)} 메소</strong></div>`).join('');
   const count = routine().length;
   const percent = total.expected ? Math.round(total.earned / total.expected * 100) : 0;
   $('#earned').textContent = money(total.earned);
@@ -125,7 +136,7 @@ function render() {
   $('#week-label').textContent = monthly ? `${month.slice(0, 4)}년 ${Number(month.slice(5))}월` : weekLabel(key);
   $('#period-range-label').textContent = monthly ? '이번 달 보스 기록' : '이번 주 보스 기록';
   $('.reset-label').textContent = monthly ? '매월 1일 00:00 초기화 · 한국 시간' : '매주 목요일 00:00 초기화 · 한국 시간';
-  $('#period-earning-label').textContent = monthly ? '이번 달 획득 수익' : '이번 주 획득 수익';
+  $('#period-earning-label').textContent = monthly ? '월간 보스 획득 수익' : '이번 주 획득 수익';
   $('#period-title').textContent = monthly ? '월간 보스 체크리스트' : '주간 보스 체크리스트';
   $('#period-help').textContent = monthly ? '검은 마법사는 월간 기록이며 주간 12개 제한에 포함되지 않아요.' : '이번 주 처치한 보스를 체크해 주세요. 캐릭터당 최대 12개입니다.';
   renderCharacter(); renderTotals(); renderBosses();
@@ -205,7 +216,7 @@ $('#price-default').addEventListener('click', () => {
   const prices = { ...profile().settings[boss.id]?.prices }; delete prices[s.tier];
   updateSetting(boss.id, { prices }); $('#price-dialog').close(); toast('표의 기본 가격으로 복원했어요.');
 });
-$('.filters').addEventListener('click', e => {
+$('#boss-filters').addEventListener('click', e => {
   const button = e.target.closest('[data-filter]');
   if (!button) return;
   filter = button.dataset.filter;
@@ -248,8 +259,57 @@ $('#save-routine').addEventListener('click', () => {
   profile().routine = [...routineDraft, ...profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'legacy'))]; save(); render(); $('#routine-dialog').close(); toast('기본 보스 설정을 저장했어요. 다음 주에도 이어집니다.');
 });
 $('#character-tabs').addEventListener('click', e => {
+  if (e.target.closest('.drag-handle')) return;
   const button = e.target.closest('[data-character]'); if (!button) return;
   state.active = button.dataset.character; save(); render();
+});
+let draggingCharacter;
+const characterTabs = $('#character-tabs');
+characterTabs.addEventListener('pointerdown', e => {
+  if (!e.target.closest('.drag-handle') || e.button !== 0) return;
+  const tab = e.target.closest('[data-character]');
+  draggingCharacter = { id: tab.dataset.character, pointerId: e.pointerId, original: [...characterOrder()] };
+  tab.classList.add('dragging');
+  characterTabs.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+characterTabs.addEventListener('pointermove', e => {
+  if (!draggingCharacter || e.pointerId !== draggingCharacter.pointerId) return;
+  const bounds = characterTabs.getBoundingClientRect();
+  if (e.clientX < bounds.left + 20) characterTabs.scrollLeft -= 12;
+  if (e.clientX > bounds.right - 20) characterTabs.scrollLeft += 12;
+  const dragged = [...characterTabs.children].find(tab => tab.dataset.character === draggingCharacter.id);
+  const target = [...characterTabs.children].find(tab => tab !== dragged && e.clientX < tab.getBoundingClientRect().left + tab.getBoundingClientRect().width / 2);
+  characterTabs.insertBefore(dragged, target || null);
+});
+function finishCharacterDrag(e) {
+  if (!draggingCharacter || e.pointerId !== draggingCharacter.pointerId) return;
+  state.characterOrder = e.type === 'pointercancel' ? draggingCharacter.original : [...characterTabs.children].map(tab => tab.dataset.character);
+  draggingCharacter = undefined;
+  if (characterTabs.hasPointerCapture(e.pointerId)) characterTabs.releasePointerCapture(e.pointerId);
+  save(); renderCharacter();
+}
+characterTabs.addEventListener('pointerup', finishCharacterDrag);
+characterTabs.addEventListener('pointercancel', finishCharacterDrag);
+characterTabs.addEventListener('keydown', e => {
+  if (!e.altKey || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+  const tab = e.target.closest('[data-character]'); if (!tab) return;
+  e.preventDefault();
+  const order = characterOrder(), index = order.indexOf(tab.dataset.character);
+  const target = index + (e.key === 'ArrowLeft' ? -1 : 1);
+  if (target < 0 || target >= order.length) return;
+  [order[index], order[target]] = [order[target], order[index]];
+  save(); renderCharacter();
+  [...characterTabs.children].find(b => b.dataset.character === order[target]).focus();
+});
+$('#meso-rate').addEventListener('input', e => {
+  if (!e.target.validity.valid) return;
+  state.mesoRate = e.target.value === '' ? null : Number(e.target.value);
+  save(); renderTotals();
+});
+$('#monthly-weeks').addEventListener('change', e => {
+  state.monthlyWeeks = Number(e.target.value);
+  save(); renderTotals();
 });
 function addCharacter(character) {
   // 같은 이름의 직접 등록 기록은 실제 조회로 전환해도 유지한다.
@@ -324,6 +384,8 @@ setInterval(() => {
 }, 30000);
 // 기존 저장 데이터에도 실제 캐릭터가 있으면 예시 프로필을 정리한다.
 if (removeDemoProfiles()) save();
+$('#meso-rate').value = state.mesoRate ?? '';
+$('#monthly-weeks').value = String(state.monthlyWeeks);
 render();
 updateApiUi();
 if (storageError) toast('저장된 기록을 읽지 못했어요. 현재 화면은 데모입니다.');
