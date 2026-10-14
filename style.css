@@ -25,3 +25,5 @@
 .calendar-event{white-space:normal;overflow-wrap:anywhere;line-height:1.5}@media(max-width:650px){.calendar-event span{display:inline}}
 
 .reminder-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:18px}.reminder-controls .button{font-size:12px;padding:9px 12px}#reminder-status{line-height:1.8;margin-top:10px}#reminder-form input{width:100%}#reminder-form>.muted{line-height:1.8}#reminder-form a{color:var(--purple);text-decoration:underline}@media(max-width:650px){.reminder-controls{gap:10px}.reminder-controls .button{font-size:11px}.reminder-controls .text-button{font-size:10px}#reminder-dialog .dialog-footer{flex-wrap:wrap}}
+
+.delete-character{display:block;margin:8px auto 0;color:#b34b61}.delete-character:hover{color:#922b43;text-decoration:underline}

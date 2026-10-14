@@ -1,8 +1,8 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261012-4';
-import { createReminders } from './reminders.js?v=20261012-4';
-import { createCalendar } from './calendar.js?v=20261012-4';
-import { sanitizeEvents } from './calendar-model.js?v=20261012-4';
-import { fetchCharacter } from './character-api.js?v=20261012-4';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261014-1';
+import { createReminders } from './reminders.js?v=20261014-1';
+import { createCalendar } from './calendar.js?v=20261014-1';
+import { sanitizeEvents } from './calendar-model.js?v=20261014-1';
+import { fetchCharacter } from './character-api.js?v=20261014-1';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
@@ -97,7 +97,7 @@ function renderCharacter() {
   const c = profile().character;
   $('#character-tabs').innerHTML = characterOrder().map(id => { const p = state.profiles[id]; return `<button class="character-tab ${id === state.active ? 'selected' : ''}" data-character="${esc(id)}" title="${esc(p.character.name)}">${esc(p.character.name)}</button>`; }).join('');
   const source = c.source === 'nexon' ? 'Nexon 조회' : c.source === 'demo' ? '데모 캐릭터' : '직접 등록';
-  $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button></div>`;
+  $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button>${c.source !== 'demo' ? '<button class="text-button delete-character" data-delete-character>캐릭터 삭제</button>' : ''}</div>`;
   $('#routine-summary').innerHTML = `<span>저장된 기본 보스</span><strong>${profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) !== 'legacy')).length} 마리</strong>`;
 }
 function renderTotals() {
@@ -374,6 +374,7 @@ async function loadApiCharacter(name, inDialog = false) {
   if (inDialog) $('#lookup-status').textContent = '캐릭터 사진과 정보를 불러오고 있어요…';
   try {
     const character = await fetchCharacter(name, nexonApiKey, { signal: lookupController.signal });
+    if (lookupController.signal.aborted) return;
     addCharacter(character);
   } catch (error) {
     if (inDialog) $('#lookup-status').textContent = error.message;
@@ -385,6 +386,23 @@ async function loadApiCharacter(name, inDialog = false) {
 }
 $('#lookup-button').addEventListener('click', () => loadApiCharacter($('#character-name').value, true));
 $('#character-card').addEventListener('click', e => {
+  if (e.target.closest('[data-delete-character]')) {
+    const id = state.active;
+    const name = profile().character.name;
+    if (!confirm(`${name} 캐릭터를 삭제할까요?\n이 캐릭터의 보스 설정, 동행 메모, 주간·월간 처치 기록이 함께 삭제됩니다.`)) return;
+    lookupController?.abort();
+    const order = [...characterOrder()], index = order.indexOf(id);
+    delete state.profiles[id];
+    state.characterOrder = order.filter(characterId => characterId !== id);
+    if (state.characterOrder.length) {
+      state.active = state.characterOrder[Math.min(index, state.characterOrder.length - 1)];
+    } else {
+      state.profiles.demo = createProfile(demo);
+      state.active = 'demo'; state.characterOrder = ['demo'];
+    }
+    save(); render(); toast(`${name} 캐릭터를 삭제했어요.`);
+    return;
+  }
   if (e.target.closest('[data-refresh-character]')) loadApiCharacter(profile().character.name);
 });
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
