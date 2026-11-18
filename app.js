@@ -1,12 +1,13 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears } from './model.js?v=20261014-1';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears, parsePower } from './model.js?v=20261118-5';
 import { createReminders } from './reminders.js?v=20261014-1';
 import { createCalendar } from './calendar.js?v=20261014-1';
 import { sanitizeEvents } from './calendar-model.js?v=20261014-1';
-import { fetchCharacter } from './character-api.js?v=20261014-1';
+import { fetchCharacter } from './character-api.js?v=20261118-5';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
 const compact = n => n >= 100000000 ? `${(n / 100000000).toFixed(2)}억` : `${money(Math.floor(n / 10000))}만`;
+const powerLabel = n => n >= 100000000 ? `${(n / 100000000).toFixed(2).replace(/\.?0+$/, '')}억` : n >= 10000 ? `${money(Math.floor(n / 10000))}만` : money(n);
 const STORAGE = 'maple-weekly-v1';
 const demo = { id: 'demo', name: '메이플 모험가', className: '히어로', world: '스카니아', level: 260, source: 'demo' };
 let state = { calendarEvents: [], characterOrder: [], mesoRate: 1500, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
@@ -97,7 +98,7 @@ function renderCharacter() {
   const c = profile().character;
   $('#character-tabs').innerHTML = characterOrder().map(id => { const p = state.profiles[id]; return `<button class="character-tab ${id === state.active ? 'selected' : ''}" data-character="${esc(id)}" title="${esc(p.character.name)}">${esc(p.character.name)}</button>`; }).join('');
   const source = c.source === 'nexon' ? 'Nexon 조회' : c.source === 'demo' ? '데모 캐릭터' : '직접 등록';
-  $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button>${c.source !== 'demo' ? '<button class="text-button delete-character" data-delete-character>캐릭터 삭제</button>' : ''}</div>`;
+  $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.combatPower ? `<span class="power-badge">⚔ 전투력 ${powerLabel(c.combatPower)}</span>` : ''}${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button>${c.source !== 'demo' ? `<button class="text-button power-edit" data-edit-power>${c.combatPower ? '전투력 수정' : '전투력 입력'}</button><button class="text-button delete-character" data-delete-character>캐릭터 삭제</button>` : ''}</div>`;
   $('#routine-summary').innerHTML = `<span>저장된 기본 보스</span><strong>${profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) !== 'legacy')).length} 마리</strong>`;
 }
 function renderTotals() {
@@ -258,7 +259,7 @@ function openRoutine() {
 }
 function renderRoutine() {
   $('#routine-selected').textContent = `${routineDraft.length} / ${MAX_WEEKLY_BOSSES}마리 선택`;
-  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').sort((a, b) => bossIncome(a) - bossIncome(b)).map(b => `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small>${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${recommendedSettings?.[b.id]?.tier || bossSetting(profile(), b).tier}</small></label>`).join('');
+  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').sort((a, b) => bossIncome(a) - bossIncome(b)).map(b => `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small>${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${recommendedSettings?.[b.id] ? `${recommendedSettings[b.id].tier}${recommendedSettings[b.id].party > 1 ? ` · ${recommendedSettings[b.id].party}인` : ''}` : bossSetting(profile(), b).tier}</small></label>`).join('');
   updateRoutineUi();
 }
 const weeklyDraft = () => routineDraft.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'weekly'));
@@ -284,13 +285,17 @@ $('#routine-recommend').addEventListener('click', () => {
   routineDraft = suggested.routine;
   recommendedSettings = suggested.settings;
   renderRoutine();
-  toast('레벨 기준 보스와 최고 난이도를 선택했어요. 저장하면 적용됩니다.');
+  const duo = Object.values(suggested.settings).filter(s => s.party > 1).length;
+  toast(profile().character.combatPower
+    ? `전투력 기준으로 보스를 골랐어요.${duo ? ` ${duo}마리는 2인 기준 결정석 가격으로 계산해요.` : ''} 저장하면 적용됩니다.`
+    : '레벨 기준 보스와 최고 난이도를 선택했어요. 전투력을 입력하면 1·2인격까지 맞춰요.');
 });
 $('#save-routine').addEventListener('click', () => {
   if (weeklyDraft().length > MAX_WEEKLY_BOSSES) return;
   if (recommendedSettings) {
     for (const id of routineDraft) {
-      if (recommendedSettings[id]) profile().settings[id] = { ...profile().settings[id], tier: recommendedSettings[id].tier };
+      const pick = recommendedSettings[id];
+      if (pick) profile().settings[id] = { ...profile().settings[id], tier: pick.tier, party: pick.party };
     }
   }
   profile().routine = [...routineDraft, ...profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'legacy'))]; save(); render(); $('#routine-dialog').close(); toast('기본 보스 설정을 저장했어요. 다음 주에도 이어집니다.');
@@ -326,25 +331,58 @@ $('#monthly-weeks').addEventListener('change', e => {
   state.monthlyWeeks = Number(e.target.value);
   save(); renderTotals();
 });
+function autoSelect(profile) {
+  // 전투력이 들어오면 잡을 수 있는 보스만 남기고 난이도·인원을 다시 맞춘다. 직접 수정한 가격과 메모는 유지한다.
+  const suggested = createProfile({ ...profile.character, source: 'manual' });
+  profile.routine = suggested.routine;
+  for (const [id, pick] of Object.entries(suggested.settings)) {
+    profile.settings[id] = { ...profile.settings[id], tier: pick.tier, party: pick.party, prices: profile.settings[id]?.prices || {}, note: profile.settings[id]?.note || '' };
+  }
+  return profile;
+}
 function addCharacter(character) {
   // 같은 이름의 직접 등록 기록은 실제 조회로 전환해도 유지한다.
   const existing = Object.entries(state.profiles).find(([, p]) => p.character.name === character.name && p.character.source !== 'demo');
   if (existing) {
     state.active = existing[0];
-    if (character.source === 'nexon') state.profiles[state.active].character = character;
+    const current = state.profiles[state.active];
+    const previousPower = current.character.combatPower;
+    if (character.source === 'nexon') current.character = character;
+    else current.character = {
+      ...current.character,
+      ...(Number.isInteger(character.level) ? { level: character.level } : {}),
+      ...(Number.isInteger(character.combatPower) ? { combatPower: character.combatPower } : {}),
+    };
+    // 전투력을 새로 받은 경우에만 자동 선택을 다시 적용한다.
+    if (Number.isInteger(current.character.combatPower) && current.character.combatPower !== previousPower) {
+      autoSelect(current);
+      removeDemoProfiles(); save(); render(); $('#character-dialog').close();
+      toast(`${character.name}의 전투력 ${powerLabel(current.character.combatPower)} 기준으로 보스를 다시 선택했어요.`);
+      return;
+    }
   } else {
     state.active = character.id; state.profiles[state.active] = createProfile(character);
   }
   removeDemoProfiles();
   save(); render(); $('#character-dialog').close(); toast(`${character.name}의 기록을 불러왔어요.`);
 }
-$('#add-character').addEventListener('click', () => { $('#lookup-status').textContent = ''; $('#character-name').value = ''; $('#character-level').value = ''; $('#character-dialog').showModal(); });
+function openCharacterDialog(power = '') {
+  $('#lookup-status').textContent = '';
+  $('#character-name').value = '';
+  $('#character-level').value = '';
+  $('#character-power').value = power;
+  $('#character-dialog').showModal();
+}
+$('#add-character').addEventListener('click', () => openCharacterDialog());
 $('#character-form').addEventListener('submit', e => {
   e.preventDefault();
   const name = $('#character-name').value.trim();
   if (!name) { $('#character-name').focus(); $('#lookup-status').textContent = '직접 등록할 캐릭터 이름을 입력해 주세요.'; return; }
   const level = $('#character-level').value === '' ? undefined : Number($('#character-level').value);
-  addCharacter({ id: `manual:${name}`, name, level, source: 'manual' });
+  const powerText = $('#character-power').value.trim();
+  const combatPower = powerText ? parsePower(powerText) : undefined;
+  if (powerText && !combatPower) { $('#character-power').focus(); $('#lookup-status').textContent = '전투력은 1억 2400만, 8500만, 124000000처럼 입력해 주세요.'; return; }
+  addCharacter({ id: `manual:${name}`, name, level, combatPower, source: 'manual' });
 });
 function updateApiUi() {
   $('#api-settings').textContent = nexonApiKey ? 'Nexon API 키 입력됨' : 'Nexon API 연결';
@@ -387,6 +425,13 @@ async function loadApiCharacter(name, inDialog = false) {
 }
 $('#lookup-button').addEventListener('click', () => loadApiCharacter($('#character-name').value, true));
 $('#character-card').addEventListener('click', e => {
+  if (e.target.closest('[data-edit-power]')) {
+    const c = profile().character;
+    openCharacterDialog(c.combatPower ? String(c.combatPower) : '');
+    $('#character-name').value = c.name;
+    $('#character-level').value = Number.isInteger(c.level) ? String(c.level) : '';
+    return;
+  }
   if (e.target.closest('[data-delete-character]')) {
     const id = state.active;
     const name = profile().character.name;

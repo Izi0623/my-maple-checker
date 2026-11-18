@@ -623,17 +623,111 @@ export function weekLabel(key) {
   const fmt = d => `${String(d.getUTCMonth() + 1).padStart(2, '0')}.${String(d.getUTCDate()).padStart(2, '0')}`;
   return `${fmt(start)} – ${fmt(end)}`;
 }
-export function createProfile(character) {
-  const profile = { character, routine: [...suggestedRoutine], settings: {}, weeks: {}, months: {} };
-  if (Number.isInteger(character.level) && character.level >= 1 && character.source !== 'demo') {
-    const available = bosses.filter(b => bossCycle(b) !== 'legacy' && character.level >= bossEntryLevels[b.id]);
-    const strongest = b => [...b.tiers].sort((a, c) => (c[1] ?? 0) - (a[1] ?? 0))[0];
-    const weekly = available.filter(b => bossCycle(b) === 'weekly').sort((a, b) => strongest(b)[1] - strongest(a)[1]).slice(0, MAX_WEEKLY_BOSSES);
-    const selected = [...weekly, ...available.filter(b => bossCycle(b) === 'monthly')];
-    profile.routine = selected.map(b => b.id);
-    for (const b of selected) profile.settings[b.id] = { tier: strongest(b)[0], party: 1, prices: {}, note: '' };
+export function createProfile(character = {}) {
+  const { combatPower, ...rest } = character;
+  const power = typeof combatPower === 'string' ? parsePower(combatPower) : normalizePower(combatPower);
+  const safeCharacter = power === null ? { ...rest } : { ...rest, combatPower: power };
+  const profile = { character: safeCharacter, routine: [...suggestedRoutine], settings: {}, weeks: {}, months: {} };
+  if (Number.isInteger(safeCharacter.level) && safeCharacter.level >= 1 && safeCharacter.source !== 'demo') {
+    const available = bosses.filter(b => bossCycle(b) !== 'legacy' && safeCharacter.level >= (bossEntryLevels[b.id] ?? 0));
+    const picks = available
+      .map(boss => ({ boss, clear: bestBossClear(boss, { level: safeCharacter.level, combatPower: power }) }))
+      .filter(pick => pick.clear);
+    const weekly = picks.filter(pick => bossCycle(pick.boss) === 'weekly').sort((a, b) => b.clear.perPerson - a.clear.perPerson).slice(0, MAX_WEEKLY_BOSSES);
+    const selected = [...weekly, ...picks.filter(pick => bossCycle(pick.boss) === 'monthly')];
+    profile.routine = selected.map(pick => pick.boss.id);
+    for (const { boss, clear } of selected) profile.settings[boss.id] = { tier: clear.tier, party: clear.party, prices: {}, note: '' };
   }
   return profile;
+}
+// 1인 격파 최소 전투력. 2인격은 같은 난이도의 55% 수준에서 클리어 가능한 것으로 본다.
+// 값의 근거와 출처는 POWER_SOURCES.md에 정리했다.
+export const DUO_POWER_RATIO = 0.55;
+export const bossSoloPower = {
+  zakum: { '카오스': 900000 },
+  magnus: { '하드': 3000000 },
+  hilla: { '하드': 800000 },
+  papulatus: { '카오스': 6000000 },
+  pierre: { '카오스': 3000000 },
+  vonbon: { '카오스': 3000000 },
+  queen: { '카오스': 3000000 },
+  vellum: { '카오스': 5000000 },
+  pinkbean: { '카오스': 1600000 },
+  cygnus: { '이지': 400000, '노멀': 600000 },
+  lotus: { '노멀': 7000000, '하드': 19000000, '익스트림': 340000000 },
+  damien: { '노멀': 8000000, '하드': 20000000 },
+  slime: { '노멀': 8000000, '카오스': 40000000 },
+  lucid: { '이지': 12000000, '노멀': 20000000, '하드': 40000000 },
+  will: { '이지': 12000000, '노멀': 25000000, '하드': 40000000 },
+  gloom: { '노멀': 16000000, '카오스': 40000000 },
+  darknell: { '노멀': 18000000, '하드': 40000000 },
+  vhilla: { '노멀': 30000000, '하드': 50000000 },
+  seren: { '노멀': 80000000, '하드': 180000000, '익스트림': 1100000000 },
+  kalos: { '이지': 120000000, '노멀': 250000000, '카오스': 700000000, '익스트림': 1600000000 },
+  kaling: { '이지': 250000000, '노멀': 600000000, '하드': 1000000000, '익스트림': 2500000000 },
+  first_adversary: { '이지': 90000000, '노멀': 300000000, '하드': 1200000000, '익스트림': 3000000000 },
+  radiant_malefic_star: { '노멀': 200000000, '하드': 800000000 },
+  bellona: { '이지': 100000000, '노멀': 300000000, '하드': 1000000000 },
+  limbo: { '노멀': 700000000, '하드': 1400000000 },
+  bardrix: { '노멀': 800000000, '하드': 1700000000 },
+  jupiter: { '노멀': 700000000, '하드': 2500000000 },
+  black_mage: { '하드': 120000000, '익스트림': 800000000 },
+};
+export function normalizePower(value) {
+  const number = typeof value === 'string' ? Number(value.replace(/[^\d]/g, '')) : value;
+  return Number.isSafeInteger(number) && number > 0 && number <= 100000000000000 ? number : null;
+}
+// '1억 2400만', '8500만', '1.24억', '124,000,000' 같은 입력을 정수 전투력으로 바꾼다.
+export function parsePower(input) {
+  if (typeof input === 'number') return normalizePower(input);
+  const text = String(input ?? '').replace(/[\s,]/g, '');
+  if (!text) return null;
+  if (/^\d+$/.test(text)) return normalizePower(Number(text));
+  const units = { '억': 100000000, '천만': 10000000, '백만': 1000000, '만': 10000, '천': 1000, '백': 100 };
+  const pattern = /(\d+(?:\.\d+)?)(억|천만|백만|만|천|백)?/g;
+  let total = 0;
+  let consumed = '';
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    consumed += match[0];
+    total += Number(match[1]) * (match[2] ? units[match[2]] : 1);
+  }
+  if (!consumed || consumed !== text) return null;
+  return normalizePower(Math.round(total));
+}
+export function bossSoloThreshold(boss, tier) {
+  const value = bossSoloPower[boss.id]?.[tier];
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+export function bossDuoThreshold(boss, tier) {
+  const solo = bossSoloThreshold(boss, tier);
+  return solo === null ? null : Math.round(solo * DUO_POWER_RATIO);
+}
+// 입장 레벨과 전투력으로 그 보스에서 노릴 수 있는 가장 값진 난이도·인원을 고른다.
+// 전투력이 없으면 기존처럼 가장 비싼 난이도를 1인 기준으로 쓴다.
+export function bestBossClear(boss, { level, combatPower, prices = {} } = {}) {
+  const entryLevel = bossEntryLevels[boss.id];
+  if (entryLevel !== undefined && !(Number.isInteger(level) && level >= entryLevel)) return null;
+  const power = normalizePower(combatPower);
+  let best = null;
+  for (const [tier, defaultPrice] of boss.tiers) {
+    const custom = prices?.[tier];
+    const price = Number.isSafeInteger(custom) && custom >= 0 ? custom : defaultPrice;
+    if (!Number.isSafeInteger(price) || price < 0) continue;
+    let party = null;
+    if (power === null) party = 1;
+    else {
+      const solo = bossSoloThreshold(boss, tier);
+      if (solo === null) continue;
+      if (power >= solo) party = 1;
+      else if (power >= bossDuoThreshold(boss, tier)) party = 2;
+    }
+    if (party === null) continue;
+    const perPerson = income(price, party);
+    if (perPerson === null) continue;
+    if (!best || perPerson > best.perPerson) best = { tier, party, price, perPerson };
+  }
+  return best;
 }
 // ASSETS.md의 공개 참조 목록에 기재된 입장 요구 레벨. 전투력/선행 퀘스트는 별도 조건이다.
 export const bossEntryLevels = { zakum: 90, magnus: 175, papulatus: 190, pierre: 180, vonbon: 180, queen: 180, vellum: 180, lotus: 190, damien: 190, slime: 210, lucid: 220, will: 235, gloom: 245, vhilla: 250, darknell: 255, seren: 260, kalos: 265, first_adversary: 270, kaling: 275, radiant_malefic_star: 280, bellona: 280, limbo: 285, bardrix: 290, jupiter: 295, black_mage: 255 };

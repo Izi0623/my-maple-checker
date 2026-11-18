@@ -27,5 +27,17 @@ export async function fetchCharacter(name, apiKey, { fetcher = fetch, signal } =
   if (!id.ocid) throw new Error('캐릭터 식별자를 찾지 못했어요.');
   const basic = await request('character/basic', { ocid: id.ocid });
   if (!basic.character_name) throw new Error('캐릭터 정보를 찾지 못했어요.');
-  return { id: id.ocid, name: basic.character_name, level: basic.character_level, world: basic.world_name, className: basic.character_class, image: basic.character_image, source: 'nexon' };
+  const character = { id: id.ocid, name: basic.character_name, level: basic.character_level, world: basic.world_name, className: basic.character_class, image: basic.character_image, source: 'nexon' };
+  // 전투력을 못 받아도 캐릭터 등록은 그대로 진행한다.
+  const combatPower = readCombatPower(await request('character/stat', { ocid: id.ocid }).catch(() => null));
+  if (combatPower !== null) character.combatPower = combatPower;
+  return character;
+}
+// character/stat의 final_stat에서 '전투력'만 정수로 뽑는다. 값이 없으면 null.
+export function readCombatPower(stat) {
+  const entry = Array.isArray(stat?.final_stat) ? stat.final_stat.find(item => item?.stat_name === '전투력') : null;
+  const digits = String(entry?.stat_value ?? '').replace(/[^0-9]/g, '');
+  if (!digits) return null;
+  const value = Number(digits);
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
 }
