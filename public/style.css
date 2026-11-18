@@ -906,7 +906,7 @@ dialog > .muted, dialog form > .muted { margin-bottom: 14px; font-size: 12px; li
   .workspace > aside { gap: 14px; }
   .character-panel { padding: 20px; }
   /* character card turns horizontal so the sidebar stays short */
-  #character-card { display: grid; grid-template-columns: 156px minmax(0, 1fr); align-items: center; gap: 18px; }
+  #character-card { display: grid; grid-template-columns: 156px minmax(0, 1fr); align-items: center; gap: 18px; max-width: 600px; margin: 6px auto 0; }
   .character-visual { height: 156px; margin-top: 6px; }
   .character-info { padding: 0; text-align: left; }
   .character-info h3 { font-size: 18px; }
@@ -915,8 +915,6 @@ dialog > .muted, dialog form > .muted { margin-bottom: 14px; font-size: 12px; li
   .aside-divider { margin: 18px 0; }
   .tip-card { display: none; }
   .storage-note { margin-top: 4px; }
-  .period-tabs { width: 100%; }
-  .period-tabs button { flex: 1; justify-content: center; }
   .calendar-day { min-height: 88px; }
 }
 
@@ -957,8 +955,8 @@ dialog > .muted, dialog form > .muted { margin-bottom: 14px; font-size: 12px; li
   .character-panel > .button { font-size: 11.5px; }
   .meso-settings .field-label { font-size: 11.5px; }
 
-  .period-tabs { padding: 3px; border-radius: 12px; margin-bottom: 14px; }
-  .period-tabs button { padding: 9px 4px; font-size: 12px; border-radius: 9px; }
+  .period-tabs { display: flex; width: 100%; padding: 3px; border-radius: 12px; margin-bottom: 14px; }
+  .period-tabs button { flex: 1; justify-content: center; padding: 9px 4px; font-size: 12px; border-radius: 9px; }
 
   .earnings-card { padding: 22px 20px; border-radius: 18px; }
   .earnings-number { margin-top: 12px; }
