@@ -1,4 +1,4 @@
-import { todayKey, monthDates, eventsOnDate, eventColor, saveEvent, parseScheduleInput } from './calendar-model.js?v=20261012-4';
+import { todayKey, monthDates, eventsOnDate, eventColor, saveEvent, parseScheduleInput, validDate } from './calendar-model.js?v=20261118-1';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateLabel = date => `${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월 ${Number(date.slice(8))}일`;
@@ -59,5 +59,10 @@ export function createCalendar({ getEvents, setEvents, toast }) {
     setEvents(getEvents().filter(e => e.id !== editingId));
     $('#calendar-event-dialog').close(); render(); toast('보스 일정을 삭제했어요.');
   });
-  return { render };
+  // 링크로 추가한 일정의 달과 날짜를 바로 보여 준다.
+  function focus(date) {
+    if (!validDate(date)) return;
+    selected = date; month = date.slice(0, 7); render();
+  }
+  return { render, focus };
 }
