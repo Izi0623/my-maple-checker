@@ -272,7 +272,11 @@ function openRoutine() {
 }
 function renderRoutine() {
   $('#routine-selected').textContent = `${routineDraft.length} / ${MAX_WEEKLY_BOSSES}마리 선택`;
-  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').sort((a, b) => bossIncome(a) - bossIncome(b)).map(b => `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small>${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${recommendedSettings?.[b.id] ? `${recommendedSettings[b.id].tier}${recommendedSettings[b.id].party > 1 ? ` · ${recommendedSettings[b.id].party}인` : ''}` : bossSetting(profile(), b).tier}</small></label>`).join('');
+  $('#routine-list').innerHTML = bosses.filter(b => bossCycle(b) !== 'legacy').sort((a, b) => bossIncome(a) - bossIncome(b)).map(b => {
+    const pick = recommendedSettings?.[b.id];
+    const tier = pick ? pick.tier : bossSetting(profile(), b).tier;
+    return `<label class="routine-option"><input type="checkbox" value="${b.id}" ${routineDraft.includes(b.id) ? 'checked' : ''}>${bossPortrait(b, true)}<span>${b.name}</span><small data-tier="${esc(tier)}">${bossCycle(b) === 'monthly' ? '월간 · ' : ''}${esc(tier)}${pick && pick.party > 1 ? ` · ${pick.party}인` : ''}</small></label>`;
+  }).join('');
   updateRoutineUi();
 }
 const weeklyDraft = () => routineDraft.filter(id => bosses.some(b => b.id === id && bossCycle(b) === 'weekly'));
