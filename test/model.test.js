@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bosses, createProfile, weekKey, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossSoloPower, bossDuoThreshold, bestBossClear, parsePower } from '../public/model.js';
+import { bosses, createProfile, weekKey, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossSoloPower, bossDuoThreshold, bestBossClear, parsePower, mergeCharacterPower, mergeFetchedCharacter, applyManualCharacter } from '../public/model.js';
 
 test('한국 시간 목요일 00:00에만 주간 기록이 바뀐다', () => {
   assert.equal(weekKey(new Date('2026-10-14T14:59:59Z')), '2026-10-08');
@@ -170,4 +170,66 @@ test('전투력 입력은 억·만 표기와 숫자를 모두 받아들이고 �
   assert.equal(p.settings.seren.party, 1);
   // 문자열로 들어온 정상 값은 정수로 정리해 보관한다.
   assert.equal(createProfile({ name: '문자열', level: 280, combatPower: '1억2400만', source: 'manual' }).character.combatPower, 124000000);
+});
+
+test('새로 조회한 전투력이 더 낮우면 저장된 보스 전투력을 그대로 유지한다', () => {
+  const saved = { name: '아델', level: 285, class: '아델', combatPower: 124000000, combatPowerDate: '2026-11-14', source: 'manual' };
+  // 보스 프리셋 1억 2,400만 → 사냥 프리셋 9,500만 스냅샷이 새로 들어온 경우
+  const fetched = { id: 'ocid-1', name: '아델', level: 286, className: '아델', world: '스카니아', image: 'https://example.com/a.png', source: 'nexon', combatPower: 95000000, combatPowerDate: '2026-11-17' };
+  const merged = mergeFetchedCharacter(saved, fetched);
+  assert.equal(merged.combatPower, 124000000);
+  assert.equal(merged.keptExisting, true);
+  assert.equal(merged.fetchedCombatPower, 95000000);
+  // 캐릭터 정보 자체는 새 값으로 갱신되고, 전투력·기준일만 높은 쪽이 남는다.
+  assert.equal(merged.character.level, 286);
+  assert.equal(merged.character.source, 'nexon');
+  assert.equal(merged.character.image, 'https://example.com/a.png');
+  assert.equal(merged.character.combatPower, 124000000);
+  assert.equal(merged.character.combatPowerDate, '2026-11-14');
+});
+
+test('새로 조회한 전투력이 더 높우면 그 값과 기준일로 버꾼다', () => {
+  const saved = { name: '아델', level: 285, combatPower: 124000000, combatPowerDate: '2026-10-01', source: 'manual' };
+  const fetched = { id: 'ocid-1', name: '아델', level: 285, source: 'nexon', combatPower: 141000000, combatPowerDate: '2026-11-16' };
+  const merged = mergeFetchedCharacter(saved, fetched);
+  assert.equal(merged.character.combatPower, 141000000);
+  assert.equal(merged.character.combatPowerDate, '2026-11-16');
+  assert.equal(merged.keptExisting, false);
+});
+
+test('조회에 전투력이 없으면 저장된 값을 유지하고, 저장된 값도 없으면 비워 둔다', () => {
+  const kept = mergeFetchedCharacter({ name: 'A', combatPower: 85000000, combatPowerDate: '2026-11-10' }, { name: 'A', level: 200, source: 'nexon' });
+  assert.equal(kept.character.combatPower, 85000000);
+  assert.equal(kept.character.combatPowerDate, '2026-11-10');
+  assert.equal(kept.keptExisting, true);
+  assert.equal(kept.fetchedCombatPower, undefined);
+  const empty = mergeFetchedCharacter({ name: 'B' }, { name: 'B', level: 200, source: 'nexon' });
+  assert.equal(empty.character.combatPower, undefined);
+  assert.equal(empty.character.combatPowerDate, undefined);
+  assert.equal(empty.keptExisting, false);
+  // 잘못된 값은 무시하고 숫자로 정리해 비교한다.
+  assert.equal(mergeCharacterPower({ combatPower: '1억 2400만' }, { combatPower: 90000000 }).combatPower, 124000000);
+  assert.equal(mergeCharacterPower({ combatPower: 0 }, { combatPower: 90000000 }).combatPower, 90000000);
+});
+
+test('직접 입력·수정한 전투력은 낮추더라도 그대로 저장한다', () => {
+  const saved = { name: '아델', level: 285, combatPower: 124000000, combatPowerDate: '2026-11-14', source: 'nexon' };
+  const lowered = applyManualCharacter(saved, { combatPower: 95000000 });
+  assert.equal(lowered.combatPower, 95000000);
+  assert.equal(lowered.combatPowerDate, undefined);
+  assert.equal(lowered.name, '아델');
+  // 값이 그대로인 수정(레벨만 바꾸기)은 조회 기준일을 지우지 않는다.
+  const sameElsewhere = applyManualCharacter(saved, { level: 286, combatPower: 124000000 });
+  assert.equal(sameElsewhere.combatPowerDate, '2026-11-14');
+  assert.equal(sameElsewhere.level, 286);
+  // 전투력을 비우면 기존 값을 건드리지 않는다(레벨만 바뀐다).
+  const untouched = applyManualCharacter(saved, { level: 287 });
+  assert.equal(untouched.combatPower, 124000000);
+  assert.equal(applyManualCharacter(saved, { combatPower: '많이' }).combatPower, 124000000);
+});
+
+test('저장 데이터의 기준일은 날짜 형식만 남기고 잘못된 값은 버린다', () => {
+  assert.equal(createProfile({ name: 'C', combatPower: 124000000, combatPowerDate: '2026-11-14' }).character.combatPowerDate, '2026-11-14');
+  assert.equal(createProfile({ name: 'C', combatPower: 124000000, combatPowerDate: '<script>' }).character.combatPowerDate, undefined);
+  assert.equal(createProfile({ name: 'C', combatPowerDate: '2026-11-14' }).character.combatPowerDate, undefined);
 });
