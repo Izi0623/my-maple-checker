@@ -3,6 +3,8 @@ import { createReminders } from './reminders.js?v=20261014-1';
 import { createCalendar } from './calendar.js?v=20261014-1';
 import { sanitizeEvents } from './calendar-model.js?v=20261014-1';
 import { fetchCharacter } from './character-api.js?v=20261118-8';
+import { readStoredApiKey, saveApiKey, clearApiKey } from './api-key-store.js?v=20261118-9';
+import { exportState } from './export-data.js?v=20261118-9';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
@@ -17,7 +19,8 @@ const powerInput = n => {
 const STORAGE = 'maple-weekly-v1';
 const demo = { id: 'demo', name: '메이플 모험가', className: '히어로', world: '스카니아', level: 260, source: 'demo' };
 let state = { calendarEvents: [], characterOrder: [], mesoRate: 1500, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
-let nexonApiKey = '';
+// 새로고침·재방문에도 연결이 유지되도록 이 브라우저에 저장해 둔 키로 시작한다.
+let nexonApiKey = readStoredApiKey();
 let lookupController;
 let storageError = false;
 try {
@@ -399,22 +402,33 @@ $('#character-form').addEventListener('submit', e => {
   addCharacter({ id: `manual:${name}`, name, level, combatPower, source: 'manual' });
 });
 function updateApiUi() {
-  $('#api-settings').textContent = nexonApiKey ? 'Nexon API 키 입력됨' : 'Nexon API 연결';
-  $('#api-lookup-hint').textContent = nexonApiKey ? '키는 이 탭에서만 사용돼요.' : '먼저 Nexon API를 연결해 주세요.';
+  const connected = Boolean(nexonApiKey);
+  $('#api-settings').textContent = connected ? 'Nexon API 연결됨 ✓' : 'Nexon API 연결';
+  $('#api-settings').classList.toggle('connected', connected);
+  $('#api-lookup-hint').textContent = connected ? '이 브라우저에 저장된 키로 연결돼 있어요.' : '먼저 Nexon API를 연결해 주세요.';
+  $('#api-status').textContent = connected
+    ? '이 브라우저에 저장된 키로 연결되어 있어요. 새 키를 입력하면 저장된 키를 바꿔요.'
+    : '키는 이 브라우저의 localStorage에만 저장되고, 기록 내보내기(JSON)에는 들어가지 않아요.';
 }
-$('#api-settings').addEventListener('click', () => { $('#api-key').value = ''; $('#api-dialog').showModal(); });
+$('#api-settings').addEventListener('click', () => { $('#api-key').value = ''; updateApiUi(); $('#api-dialog').showModal(); });
 $('#api-dialog').addEventListener('close', () => { $('#api-key').value = ''; });
 $('#api-form').addEventListener('submit', e => {
   e.preventDefault();
   const enteredKey = $('#api-key').value.trim();
   if (!enteredKey) return;
   lookupController?.abort(); nexonApiKey = enteredKey;
+  // 키는 이 브라우저의 localStorage에만 저장한다. 기록 내보내기 파일에는 넣지 않는다.
+  const stored = saveApiKey(enteredKey);
   $('#api-key').value = '';
-  $('#api-dialog').close(); updateApiUi(); toast('이 탭에서 API 키를 사용할 수 있어요. 캐릭터 사진을 불러와 보세요.');
+  $('#api-dialog').close(); updateApiUi();
+  toast(stored ? 'API 키를 이 브라우저에 저장했어요. 새로고침해도 연결이 유지돼요.' : '이 브라우저에는 키를 저장하지 못했어요. 이번 탭에서만 사용할 수 있어요.');
 });
 $('#disconnect-api').addEventListener('click', () => {
   $('#api-key').value = '';
-  lookupController?.abort(); nexonApiKey = ''; $('#api-dialog').close(); updateApiUi(); toast('API 키를 지웠어요.');
+  lookupController?.abort(); nexonApiKey = '';
+  const removed = clearApiKey();
+  $('#api-dialog').close(); updateApiUi();
+  toast(removed ? 'API 키를 이 브라우저에서 지웠어요.' : '이번 탭에서 키를 지웠어요. 브라우저에 남은 기존 키는 직접 삭제해 주세요.');
 });
 async function loadApiCharacter(name, inDialog = false) {
   if (!nexonApiKey) { toast('먼저 Nexon API 키를 연결해 주세요.'); return; }
@@ -467,7 +481,7 @@ $('#character-card').addEventListener('click', e => {
 });
 document.querySelectorAll('.close-dialog').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 $('#export-data').addEventListener('click', () => {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
+  const url = URL.createObjectURL(new Blob([exportState(state)], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = `maple-weekly-${key}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 // 열린 화면에서도 한국 시간 목요일 0시가 지나면 새 주의 기록으로 전환한다.
