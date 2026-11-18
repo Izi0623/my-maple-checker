@@ -1,13 +1,19 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears, parsePower } from './model.js?v=20261118-7';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears, parsePower, mergeFetchedCharacter, applyManualCharacter } from './model.js?v=20261118-8';
 import { createReminders } from './reminders.js?v=20261014-1';
 import { createCalendar } from './calendar.js?v=20261014-1';
 import { sanitizeEvents } from './calendar-model.js?v=20261014-1';
-import { fetchCharacter } from './character-api.js?v=20261118-7';
+import { fetchCharacter } from './character-api.js?v=20261118-8';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
 const compact = n => n >= 100000000 ? `${(n / 100000000).toFixed(2)}억` : `${money(Math.floor(n / 10000))}만`;
 const powerLabel = n => n >= 100000000 ? `${(n / 100000000).toFixed(2).replace(/\.?0+$/, '')}억` : n >= 10000 ? `${money(Math.floor(n / 10000))}만` : money(n);
+// 수정 창에는 저장된 값을 그대로 되돌려 넣는다. 억·만 표기로 정확히 표현되지 않는 값은 숫자로 보여 준다.
+const powerInput = n => {
+  const eok = Math.floor(n / 100000000), man = Math.floor((n % 100000000) / 10000), rest = n % 10000;
+  const text = [eok && `${eok}억`, man && `${man}만`, rest && String(rest)].filter(Boolean).join(' ');
+  return text && parsePower(text) === n ? text : money(n);
+};
 const STORAGE = 'maple-weekly-v1';
 const demo = { id: 'demo', name: '메이플 모험가', className: '히어로', world: '스카니아', level: 260, source: 'demo' };
 let state = { calendarEvents: [], characterOrder: [], mesoRate: 1500, monthlyWeeks: 4, active: 'demo', profiles: { demo: createProfile(demo) } };
@@ -98,7 +104,7 @@ function renderCharacter() {
   const c = profile().character;
   $('#character-tabs').innerHTML = characterOrder().map(id => { const p = state.profiles[id]; return `<button class="character-tab ${id === state.active ? 'selected' : ''}" data-character="${esc(id)}" title="${esc(p.character.name)}">${esc(p.character.name)}</button>`; }).join('');
   const source = c.source === 'nexon' ? 'Nexon 조회' : c.source === 'demo' ? '데모 캐릭터' : '직접 등록';
-  $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.combatPower ? `<span class="power-badge">✦ 전투력 ${powerLabel(c.combatPower)}</span>` : ''}${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button>${c.source !== 'demo' ? `<button class="text-button power-edit" data-edit-power>${c.combatPower ? '전투력 수정' : '전투력 입력'}</button><button class="text-button delete-character" data-delete-character>캐릭터 삭제</button>` : ''}</div>`;
+  $('#character-card').innerHTML = `<div class="character-visual"><span class="character-source">${source}</span><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="sparkle s-one">✦</span><span class="sparkle s-two">✧</span>${portrait(c, true)}</div><div class="character-info"><h3>${esc(c.name)}</h3><p>${c.level ? `Lv. ${esc(c.level)} <span>·</span> ` : ''}${esc(c.className || '나의 모험가')}</p><span class="world-badge"><span class="live-dot"></span>${esc(c.world || '직접 등록 캐릭터')}</span>${c.combatPower ? `<span class="power-badge">✦ 전투력 ${powerLabel(c.combatPower)}</span><span class="power-hint">${c.combatPowerDate ? `Nexon 최근 7일 최고 · ${esc(c.combatPowerDate.slice(5).replace('-', '.'))} 기준` : '직접 입력한 전투력'}</span>` : ''}${c.source === 'demo' ? '<p class="demo-notice">체험용 캐릭터예요. ＋ 버튼으로<br>내 캐릭터를 등록해 보세요.</p>' : ''}<button class="text-button refresh-photo" data-refresh-character>사진·정보 새로 불러오기</button>${c.source !== 'demo' ? `<button class="text-button power-edit" data-edit-power>${c.combatPower ? '전투력 수정' : '전투력 입력'}</button><button class="text-button delete-character" data-delete-character>캐릭터 삭제</button>` : ''}</div>`;
   $('#routine-summary').innerHTML = `<span>저장된 기본 보스</span><strong>${profile().routine.filter(id => bosses.some(b => b.id === id && bossCycle(b) !== 'legacy')).length} 마리</strong>`;
 }
 function renderTotals() {
@@ -347,19 +353,27 @@ function addCharacter(character) {
     state.active = existing[0];
     const current = state.profiles[state.active];
     const previousPower = current.character.combatPower;
-    if (character.source === 'nexon') current.character = character;
-    else current.character = {
-      ...current.character,
-      ...(Number.isInteger(character.level) ? { level: character.level } : {}),
-      ...(Number.isInteger(character.combatPower) ? { combatPower: character.combatPower } : {}),
-    };
-    // 전투력을 새로 받은 경우에만 자동 선택을 다시 적용한다.
-    if (Number.isInteger(current.character.combatPower) && current.character.combatPower !== previousPower) {
-      autoSelect(current);
-      removeDemoProfiles(); save(); render(); $('#character-dialog').close();
-      toast(`${character.name}의 전투력 ${powerLabel(current.character.combatPower)} 기준으로 보스를 다시 선택했어요.`);
-      return;
+    let merged = null;
+    if (character.source === 'nexon') {
+      // 조회 값으로 갱신하되, 전투력은 저장된 값과 최근 7일 최고 중 높은 쪽을 남긴다.
+      merged = mergeFetchedCharacter(current.character, character);
+      current.character = merged.character;
+    } else {
+      // 직접 입력한 전투력은 사용자가 정한 값이므로 그대로 저장한다(낮추는 것도 허용). 값이 그대로면 조회 기준일은 유지한다.
+      current.character = applyManualCharacter(current.character, { level: character.level, combatPower: character.combatPower });
     }
+    // 전투력이 바뀐 경우에만 자동 선택을 다시 적용한다.
+    const powerChanged = Number.isInteger(current.character.combatPower) && current.character.combatPower !== previousPower;
+    if (powerChanged) autoSelect(current);
+    removeDemoProfiles(); save(); render(); $('#character-dialog').close();
+    if (merged?.keptExisting && merged.fetchedCombatPower) {
+      toast(`${character.name}: 저장된 전투력 ${powerLabel(merged.combatPower)}이 더 높아 그대로 유지했어요. Nexon 최근 7일 최고는 ${powerLabel(merged.fetchedCombatPower)}였어요.`);
+    } else if (powerChanged) {
+      toast(`${character.name}의 전투력 ${powerLabel(current.character.combatPower)} 기준으로 보스를 다시 선택했어요.`);
+    } else {
+      toast(`${character.name}의 기록을 불러왔어요.`);
+    }
+    return;
   } else {
     state.active = character.id; state.profiles[state.active] = createProfile(character);
   }
@@ -427,7 +441,7 @@ $('#lookup-button').addEventListener('click', () => loadApiCharacter($('#charact
 $('#character-card').addEventListener('click', e => {
   if (e.target.closest('[data-edit-power]')) {
     const c = profile().character;
-    openCharacterDialog(c.combatPower ? powerLabel(c.combatPower) : '');
+    openCharacterDialog(c.combatPower ? powerInput(c.combatPower) : '');
     $('#character-name').value = c.name;
     $('#character-level').value = Number.isInteger(c.level) ? String(c.level) : '';
     return;

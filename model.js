@@ -624,9 +624,13 @@ export function weekLabel(key) {
   return `${fmt(start)} – ${fmt(end)}`;
 }
 export function createProfile(character = {}) {
-  const { combatPower, ...rest } = character;
-  const power = typeof combatPower === 'string' ? parsePower(combatPower) : normalizePower(combatPower);
-  const safeCharacter = power === null ? { ...rest } : { ...rest, combatPower: power };
+  const { combatPower, combatPowerDate, ...rest } = character;
+  const power = readPower(combatPower);
+  const safeCharacter = { ...rest };
+  if (power !== null) {
+    safeCharacter.combatPower = power;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(combatPowerDate ?? ''))) safeCharacter.combatPowerDate = combatPowerDate;
+  }
   const profile = { character: safeCharacter, routine: [...suggestedRoutine], settings: {}, weeks: {}, months: {} };
   if (Number.isInteger(safeCharacter.level) && safeCharacter.level >= 1 && safeCharacter.source !== 'demo') {
     const available = bosses.filter(b => bossCycle(b) !== 'legacy' && safeCharacter.level >= (bossEntryLevels[b.id] ?? 0));
@@ -639,6 +643,47 @@ export function createProfile(character = {}) {
     for (const { boss, clear } of selected) profile.settings[boss.id] = { tier: clear.tier, party: clear.party, prices: {}, note: '' };
   }
   return profile;
+}
+// 전투력 표기는 정수·'1억 2400만' 문자열을 모두 받는다.
+export function readPower(value) {
+  return typeof value === 'string' ? parsePower(value) : normalizePower(value);
+}
+// 새로 조회한 캐릭터 정보로 기존 기록을 갱신한다. 전투력만은 '높은 쪽'을 남긴다.
+// Nexon 스냅샷은 사냥용 프리셋 기준(낮은 전투력)일 수 있어 저장된 보스 전투력을 낮추지 않는다.
+// 직접 입력한 값도 같은 규칙으로 지켜지고, 다이얼로그에서 직접 고친 값은 이 병합을 거치지 않고 그대로 저장한다.
+export function mergeCharacterPower(existing = {}, fetched = {}) {
+  const saved = readPower(existing.combatPower);
+  const incoming = readPower(fetched.combatPower);
+  const savedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(existing.combatPowerDate ?? '')) ? existing.combatPowerDate : undefined;
+  const incomingDate = /^\d{4}-\d{2}-\d{2}$/.test(String(fetched.combatPowerDate ?? '')) ? fetched.combatPowerDate : undefined;
+  if (saved !== null && (incoming === null || saved > incoming)) {
+    return { combatPower: saved, ...(savedDate ? { combatPowerDate: savedDate } : {}), keptExisting: true, fetchedCombatPower: incoming ?? undefined };
+  }
+  if (incoming === null) return { keptExisting: false };
+  return { combatPower: incoming, ...(incomingDate ? { combatPowerDate: incomingDate } : {}), keptExisting: false, fetchedCombatPower: incoming };
+}
+// 조회 결과로 기존 캐릭터를 덮어쓸 때 쓰는 형태. 조회한 이름·레벨·사진 등은 새 값으로, 전투력은 높은 쪽으로 맞춘다.
+export function mergeFetchedCharacter(existing = {}, fetched = {}) {
+  const merged = mergeCharacterPower(existing, fetched);
+  const { combatPower: _power, combatPowerDate: _powerDate, ...identity } = fetched;
+  const character = { ...identity };
+  if (merged.combatPower !== undefined) {
+    character.combatPower = merged.combatPower;
+    if (merged.combatPowerDate) character.combatPowerDate = merged.combatPowerDate;
+  }
+  return { character, ...merged };
+}
+// 직접 입력·수정한 값은 사용자가 정한 값이므로 그대로 저장한다(일부러 낮추는 것도 허용).
+// 전투력이 그대로면 Nexon 조회 기준일은 지우지 않고, 값이 바뀌면 기준일도 함께 지운다.
+export function applyManualCharacter(existing = {}, { level, combatPower } = {}) {
+  const character = { ...existing };
+  if (Number.isInteger(level)) character.level = level;
+  const power = readPower(combatPower);
+  if (power !== null) {
+    if (power !== readPower(existing.combatPower)) delete character.combatPowerDate;
+    character.combatPower = power;
+  }
+  return character;
 }
 // 1인 격파 최소 전투력. 2인격은 같은 난이도의 55% 수준에서 클리어 가능한 것으로 본다.
 // 값의 근거와 출처는 POWER_SOURCES.md에 정리했다.
