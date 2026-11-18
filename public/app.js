@@ -1,7 +1,8 @@
 import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears, parsePower, mergeFetchedCharacter, applyManualCharacter } from './model.js?v=20261118-8';
 import { createReminders } from './reminders.js?v=20261014-1';
-import { createCalendar } from './calendar.js?v=20261014-1';
-import { sanitizeEvents } from './calendar-model.js?v=20261014-1';
+import { createCalendar } from './calendar.js?v=20261118-1';
+import { sanitizeEvents, saveEvent } from './calendar-model.js?v=20261118-1';
+import { parseCalendarLink, hasCalendarLinkTrigger } from './calendar-link.js?v=20261118-1';
 import { fetchCharacter } from './character-api.js?v=20261118-8';
 import { readStoredApiKey, saveApiKey, clearApiKey } from './api-key-store.js?v=20261118-9';
 import { exportState } from './export-data.js?v=20261118-9';
@@ -172,13 +173,17 @@ function render() {
   $('#period-help').textContent = monthly ? '검은 마법사는 월간 기록이며 주간 12개 제한에 포함되지 않아요.' : '캐릭터당 주간 최대 12개 · 내 수익이 낮은 순서로 표시돼요.';
   renderTotals(); renderBosses();
 }
-$('#period-tabs').addEventListener('click', e => {
-  const button = e.target.closest('[data-cycle]'); if (!button) return;
-  cycle = button.dataset.cycle;
-  document.querySelectorAll('[data-cycle]').forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); });
+// 탭과 링크 이동이 같은 방식으로 화면을 바꾸도록 한 곳에 모은다.
+function selectCycle(next) {
+  cycle = next;
+  document.querySelectorAll('[data-cycle]').forEach(b => { const on = b.dataset.cycle === next; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
   filter = 'all'; search = ''; $('#boss-search').value = '';
   document.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
   render();
+}
+$('#period-tabs').addEventListener('click', e => {
+  const button = e.target.closest('[data-cycle]'); if (!button) return;
+  selectCycle(button.dataset.cycle);
 });
 function updateSetting(id, values) {
   const p = profile();
@@ -506,3 +511,21 @@ $('#monthly-weeks').value = String(state.monthlyWeeks);
 render();
 updateApiUi();
 if (storageError) toast('저장된 기록을 읽지 못했어요. 현재 화면은 데모입니다.');
+// ?addEvent=1&date=2026-11-19&time=19:00&title=… 링크로 들어오면 일정을 바로 추가하고 주소를 정리한다.
+function applyCalendarLink() {
+  if (!hasCalendarLinkTrigger(location.search)) return;
+  const result = parseCalendarLink(location.search, state.calendarEvents);
+  if (result) {
+    if (!result.duplicate) { state.calendarEvents = saveEvent(state.calendarEvents, result.event); save(); reminders.sync(); }
+    selectCycle('calendar');
+    calendar.focus(result.event.date);
+    toast(result.duplicate ? '이미 보스 캘린더에 있는 일정이에요.' : `보스 캘린더에 '${result.event.title}' 일정을 추가했어요.`);
+  } else {
+    selectCycle('calendar');
+    toast('일정 링크를 확인해 주세요. 날짜와 일정 이름이 필요해요.');
+  }
+  const url = new URL(location.href);
+  for (const name of ['addEvent', 'title', 'date', 'time', 'memo', 'note']) url.searchParams.delete(name);
+  history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}
+applyCalendarLink();
