@@ -116,7 +116,8 @@ function renderTotals() {
   $('#earnings-percent').textContent = `${percent}% 달성`;
   $('#progress-fill').style.width = `${percent}%`;
   $('#clear-count').textContent = clears().length;
-  $('#total-count').textContent = ` / ${cycle === 'monthly' ? 1 : MAX_WEEKLY_BOSSES}`;
+  // 월간 기록은 주간 12개 상한이 없으므로 선택한 월간 보스 수를 그대로 분모로 쓴다.
+  $('#total-count').textContent = cycle === 'monthly' ? (count ? ` / ${count}` : '') : ` / ${MAX_WEEKLY_BOSSES}`;
   $('#remaining').textContent = count - total.count;
   $('#remaining-income').innerHTML = `${compact(total.expected - total.earned)} <small>메소</small>`;
   $('#boss-count').textContent = count;
@@ -140,7 +141,7 @@ function renderBosses() {
     const done = clears().includes(b.id);
     const note = p.settings[b.id]?.note || '';
     return `<div class="boss-row ${done ? 'done' : ''}" data-boss="${b.id}"><div class="boss-identity"><label class="clear-checkbox"><input type="checkbox" data-clear="${b.id}" ${done ? 'checked' : ''} aria-label="${b.name} 처치 완료"><span>✓</span></label>${bossPortrait(b)}<div class="boss-name"><strong>${b.name}</strong><select data-tier="${b.id}" aria-label="${b.name} 난이도">${b.tiers.map(([tier]) => `<option ${tier === s.tier ? 'selected' : ''}>${tier}</option>`).join('')}</select></div></div><label class="party-select"><select data-party="${b.id}" aria-label="${b.name} 파티 인원">${Array.from({ length: s.maxParty }, (_, i) => i + 1).map(n => `<option value="${n}" ${s.party === n ? 'selected' : ''}>${n === 1 ? '솔로' : `${n}인`}</option>`).join('')}</select></label><button class="boss-income" data-price="${b.id}" aria-label="${b.name} 결정석 가격 수정"><strong>${s.price === null ? '가격 확인 필요' : money(income(s.price, s.party))}</strong><span>${s.custom ? '수정한 가격' : s.price === null ? '판매가 입력' : s.priceSource === 'excel' ? '엑셀 변경 가격' : '공개 참고값'} <span class="edit-pencil">✎</span></span></button><button class="boss-memo ${note ? 'has-note' : ''}" data-note="${b.id}" aria-label="${b.name} 동행 메모 ${note ? '수정' : '추가'}"><span class="memo-icon" aria-hidden="true">✎</span><span class="memo-preview">${note ? esc(note) : '동행 메모 추가'}</span>${note ? '<span class="memo-edit-label">수정</span>' : ''}</button></div>`;
-  }).join('') : `<div class="empty-state"><span>✧</span><h3>${routine().length === 0 ? '나만의 보스 루틴을 만들어 보세요' : filter === 'done' ? '아직 클리어한 보스가 없어요' : '표시할 보스가 없어요'}</h3><p>${routine().length === 0 ? '기본 보스 설정에서 매주 잡는 보스를 선택해 주세요.' : '필터나 검색어를 바꾸어 보세요.'}</p></div>`;
+  }).join('') : `<div class="empty-state"><span>✧</span><h3>${routine().length === 0 ? (cycle === 'monthly' ? '월간 보스 루틴을 만들어 보세요' : '나만의 보스 루틴을 만들어 보세요') : filter === 'done' ? '아직 클리어한 보스가 없어요' : '표시할 보스가 없어요'}</h3><p>${routine().length === 0 ? (cycle === 'monthly' ? '기본 보스 설정에서 이번 달에 잡을 월간 보스를 선택해 주세요.' : '기본 보스 설정에서 매주 잡는 보스를 선택해 주세요.') : '필터나 검색어를 바꾸어 보세요.'}</p></div>`;
 }
 function render() {
   $('.week-chip').hidden = cycle === 'calendar';
