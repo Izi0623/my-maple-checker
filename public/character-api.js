@@ -1,4 +1,5 @@
-// 사용자 키는 호출하는 동안만 사용한다. 저장소·로그·URL에 기록하지 않는다.
+// 사용자 키는 호출할 때만 헤더로 보낸다. 요청 URL·로그에는 남기지 않는다.
+// 브라우저 저장(localStorage)은 api-key-store.js가 맡고, 기록 내보내기 파일에는 넣지 않는다.
 // 전투력은 최근 7일 스냅샷 중 가장 높은 값을 쓴다. 사냥용 프리셋처럼 낮은 스냅샷이 보스 전투력을 덮지 않게 하기 위해서다.
 export const POWER_LOOKBACK_DAYS = 7;
 export async function fetchCharacter(name, apiKey, { fetcher = fetch, signal, now = new Date() } = {}) {
