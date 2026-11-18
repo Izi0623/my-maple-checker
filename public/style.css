@@ -280,8 +280,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 38px 28px 0; }
 .icon-button:hover { background: var(--blue-soft); border-color: var(--blue-line); color: var(--blue-strong); }
 .icon-button svg { width: 17px; height: 17px; }
 
-.api-button { margin-top: 14px; font-size: 12px; padding: 10px 12px; font-weight: 700; color: var(--blue-strong); background: var(--blue-soft); border-color: var(--blue-line); }
-.api-button:hover { background: #dcecff; border-color: #c2ddff; color: var(--blue-strong); }
+.api-button { margin-top: 14px; font-size: 12px; padding: 10px 12px; font-weight: 700; }
+.button.outline.api-button { background: var(--blue-soft); border-color: var(--blue-line); color: var(--blue-strong); }
+.button.outline.api-button:hover { background: #dcecff; border-color: #c2ddff; color: var(--blue-strong); }
 .button.outline.api-button.connected { background: var(--green-soft); border-color: var(--green-line); color: var(--green-strong); }
 .button.outline.api-button.connected:hover { background: var(--green-soft); border-color: var(--green); color: var(--green-strong); }
 .character-panel > .muted { margin: 10px 0 14px; font-size: 11.5px; }
@@ -478,21 +479,19 @@ main { max-width: 1200px; margin: 0 auto; padding: 38px 28px 0; }
   overflow: hidden;
   padding: 20px;
   border-radius: var(--radius-lg);
-  background:
-    radial-gradient(90% 80% at 100% 0%, rgba(124, 77, 255, .14), transparent 70%),
-    linear-gradient(160deg, #eaf3ff, #f5f0ff);
+  background: linear-gradient(160deg, #eaf3ff 0%, #f3efff 100%);
   border: 1px solid #e2ecff;
   box-shadow: var(--shadow-xs);
 }
 .tip-card::after {
   content: '';
   position: absolute;
-  right: -20px;
-  bottom: -30px;
-  width: 92px;
-  height: 92px;
+  right: -26px;
+  bottom: -34px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 196, 113, .22), transparent 70%);
+  background: radial-gradient(circle, rgba(124, 77, 255, .14), transparent 70%);
   pointer-events: none;
 }
 .tip-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: #fff; color: var(--amber); font-size: 18px; box-shadow: 0 6px 14px -10px rgba(25, 31, 40, .5); }
@@ -785,9 +784,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 38px 28px 0; }
   min-width: 64px;
   min-height: 30px;
   padding: 4px 24px 4px 11px;
-  border: 1px solid var(--line);
+  border: 1px solid #dfe4ea;
   border-radius: 999px;
-  background-color: var(--surface-tint);
+  background-color: #eef1f5;
   background-position: right 8px center;
   background-size: 10px;
   color: var(--ink-soft);
@@ -1014,7 +1013,12 @@ dialog > .muted, dialog form > .muted { margin-bottom: 14px; font-size: 12px; li
 .routine-option:hover { background: var(--blue-soft); }
 .routine-option input { width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--blue); cursor: pointer; }
 .routine-option > span:not(.boss-avatar) { flex: 1; min-width: 0; }
-.routine-option small { font-size: 10.5px; font-weight: 700; color: var(--violet-strong); background: var(--violet-soft); padding: 1px 7px; border-radius: 999px; }
+.routine-option small { font-size: 10.5px; font-weight: 700; color: var(--violet-strong); background: var(--violet-soft); padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.routine-option small[data-tier="이지"] { color: var(--green-strong); background: var(--green-soft); }
+.routine-option small[data-tier="노멀"] { color: var(--blue-strong); background: var(--blue-soft); }
+.routine-option small[data-tier="하드"] { color: var(--violet-strong); background: var(--violet-soft); }
+.routine-option small[data-tier="카오스"] { color: var(--amber-strong); background: var(--amber-soft); }
+.routine-option small[data-tier="익스트림"] { color: var(--coral-strong); background: var(--coral-soft); }
 .routine-option:has(input:disabled) { opacity: .45; }
 .small-avatar { width: 32px; height: 32px; border-radius: 10px; font-size: 16px; }
 .order-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px; }
