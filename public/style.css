@@ -902,7 +902,7 @@ dialog > .muted, dialog form > .muted { margin-bottom: 14px; font-size: 12px; li
   .header-inner { padding: 0 20px; }
   .intro { align-items: flex-start; }
   h1 { font-size: 30px; }
-  .workspace { display: flex; flex-direction: column; gap: 18px; }
+  .workspace { display: flex; flex-direction: column; gap: 18px; align-items: stretch; }
   .workspace > aside { gap: 14px; }
   .character-panel { padding: 20px; }
   /* character card turns horizontal so the sidebar stays short */
