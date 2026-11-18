@@ -1,8 +1,8 @@
-import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears, parsePower } from './model.js?v=20261118-6';
+import { bosses, createProfile, weekKey, weekLabel, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossCycle, monthKey, monthlyProjection, cashValue, setRoutineClears, parsePower } from './model.js?v=20261118-7';
 import { createReminders } from './reminders.js?v=20261014-1';
 import { createCalendar } from './calendar.js?v=20261014-1';
 import { sanitizeEvents } from './calendar-model.js?v=20261014-1';
-import { fetchCharacter } from './character-api.js?v=20261118-6';
+import { fetchCharacter } from './character-api.js?v=20261118-7';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Math.floor(n).toLocaleString('ko-KR');
@@ -427,7 +427,7 @@ $('#lookup-button').addEventListener('click', () => loadApiCharacter($('#charact
 $('#character-card').addEventListener('click', e => {
   if (e.target.closest('[data-edit-power]')) {
     const c = profile().character;
-    openCharacterDialog(c.combatPower ? String(c.combatPower) : '');
+    openCharacterDialog(c.combatPower ? powerLabel(c.combatPower) : '');
     $('#character-name').value = c.name;
     $('#character-level').value = Number.isInteger(c.level) ? String(c.level) : '';
     return;
