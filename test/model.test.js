@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bosses, createProfile, weekKey, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss } from '../public/model.js';
+import { bosses, createProfile, weekKey, bossSetting, income, totals, MAX_WEEKLY_BOSSES, canClearBoss, bossSoloPower, bossDuoThreshold, bestBossClear, parsePower } from '../public/model.js';
 
 test('한국 시간 목요일 00:00에만 주간 기록이 바뀐다', () => {
   assert.equal(weekKey(new Date('2026-10-14T14:59:59Z')), '2026-10-08');
@@ -76,4 +76,98 @@ test('모두 체크는 전체 루틴에 적용하고 12개 제한 위반 시 기
  assert.ok(setRoutineClears(p,'2026-10-08',false));assert.deepEqual(p.weeks['2026-10-08'],['hilla']);
  p.weeks['2026-10-08']=['limbo'];
  assert.equal(setRoutineClears(p,'2026-10-08',true),false);assert.deepEqual(p.weeks['2026-10-08'],['limbo']);
+});
+
+// --- 전투력 기반 1·2인격 자동 선택 ---
+const boss = id => bosses.find(b => b.id === id);
+test('모든 보스·난이도에 1인 격파 전투력 기준이 있고, 2인 기준은 그 55%다', () => {
+  for (const b of bosses) {
+    for (const [tier] of b.tiers) {
+      const solo = bossSoloPower[b.id]?.[tier];
+      assert.ok(Number.isSafeInteger(solo) && solo > 0, `${b.name} ${tier} 기준 없음`);
+      assert.equal(bossDuoThreshold(b, tier), Math.round(solo * 0.55));
+    }
+  }
+  // 난이도가 높을수록 요구 전투력도 높다.
+  for (const b of bosses.filter(b => b.tiers.length > 1)) {
+    const ordered = b.tiers.map(([tier]) => bossSoloPower[b.id][tier]);
+    assert.deepEqual(ordered, [...ordered].sort((a, c) => a - c), `${b.name} 난이도 순서`);
+  }
+});
+
+test('전투력이 솔격 컷이면 1인, 2인격 구간이면 2인 기준 결정석 가격을 고른다', () => {
+  // 5,000만: 노말 세렌(8,000만)은 2인(4,400만) 구간, 하드 세렌(1억 8,000만)은 불가
+  const p = createProfile({ name: '전투력', level: 280, combatPower: 50000000, source: 'manual' });
+  assert.deepEqual({ tier: p.settings.seren.tier, party: p.settings.seren.party }, { tier: '노멀', party: 2 });
+  const seren = bossSetting(p, boss('seren'));
+  assert.equal(seren.party, 2);
+  assert.equal(income(seren.price, seren.party), 83500000);
+  // 하드 스우는 1인 유지
+  assert.deepEqual({ tier: p.settings.lotus.tier, party: p.settings.lotus.party }, { tier: '하드', party: 1 });
+  // 1인 격파가 안 되는 상위 보스는 루틴에서 빠진다.
+  assert.ok(!p.routine.includes('kalos'));
+  assert.ok(!p.routine.includes('black_mage'));
+  assert.ok(p.routine.length <= MAX_WEEKLY_BOSSES + 1);
+});
+
+test('같은 보스 안에서는 1·2인 모두 따져 인당 결정석 가격이 가장 높은 난이도를 고른다', () => {
+  // 1억: 노말 세렌 1인 1억 6,700만 > 하드 세렌 2인 1억 5,100만
+  assert.deepEqual(bestBossClear(boss('seren'), { level: 280, combatPower: 100000000 }),
+    { tier: '노멀', party: 1, price: 167000000, perPerson: 167000000 });
+  // 2억: 하드 세렌 1인 3억 200만
+  assert.equal(bestBossClear(boss('seren'), { level: 280, combatPower: 200000000 }).perPerson, 302000000);
+  // 5억: 림보는 노말 2인(3억 8,500만)만 가능해 4억 9,750만
+  assert.deepEqual(bestBossClear(boss('limbo'), { level: 285, combatPower: 500000000 }),
+    { tier: '노멀', party: 2, price: 995000000, perPerson: 497500000 });
+  // 8억: 하드 림보 2인(7억 7,000만) 구간
+  assert.deepEqual(bestBossClear(boss('limbo'), { level: 285, combatPower: 800000000 }),
+    { tier: '하드', party: 2, price: 2385000000, perPerson: 1192500000 });
+  // 3,000만: 하드 파풀 컷 전이므로 아무 난이도도 되지 않는다.
+  assert.equal(bestBossClear(boss('papulatus'), { level: 200, combatPower: 3000000 }), null);
+});
+
+test('입장 레벨과 전투력 중 하나라도 모자라면 그 보스는 선택하지 않는다', () => {
+  assert.equal(bestBossClear(boss('seren'), { level: 259, combatPower: 3000000000 }), null);
+  assert.ok(bestBossClear(boss('seren'), { level: 260, combatPower: 80000000 }));
+  assert.equal(bestBossClear(boss('zakum'), { level: 90, combatPower: 400000 }), null);
+  assert.deepEqual(bestBossClear(boss('zakum'), { level: 90, combatPower: 900000 }), { tier: '카오스', party: 1, price: 4040000, perPerson: 4040000 });
+});
+
+test('전투력 기반 주간 루틴은 인당 가격 내림차순 12개와 가능한 월간 보스로 채운다', () => {
+  const p = createProfile({ name: '고스펙', level: 290, combatPower: 70000000, source: 'manual' });
+  const weekly = p.routine.filter(id => bosses.find(b => b.id === id && (b.cycle || 'weekly') === 'weekly'));
+  assert.equal(weekly.length, MAX_WEEKLY_BOSSES);
+  const perPerson = id => { const s = bossSetting(p, boss(id)); return income(s.price, s.party); };
+  const values = weekly.map(perPerson);
+  assert.deepEqual(values, [...values].sort((a, b) => b - a));
+  // 7,000만이면 검은 마법사 하드는 2인 구간이라 월간 목록에 들어온다.
+  assert.ok(p.routine.includes('black_mage'));
+  assert.deepEqual({ tier: p.settings.black_mage.tier, party: p.settings.black_mage.party }, { tier: '하드', party: 2 });
+  assert.equal(totals(p, '2026-10', 'monthly').expected, Math.floor(465000000 / 2));
+});
+
+test('전투력이 없으면 지금처럼 레벨 기준 최고 난이도를 1인으로 고른다', () => {
+  const p = createProfile({ name: '레벨만', level: 280, source: 'manual' });
+  assert.equal(p.routine.length, MAX_WEEKLY_BOSSES + 1);
+  for (const id of p.routine) assert.equal(p.settings[id].party, 1);
+  assert.deepEqual({ tier: p.settings.seren.tier, party: p.settings.seren.party }, { tier: '익스트림', party: 1 });
+  assert.equal(bossSetting(p, boss('seren')).price, 1840000000);
+  assert.deepEqual(bestBossClear(boss('seren'), { level: 280 }), bestBossClear(boss('seren'), { level: 280, combatPower: null }));
+  assert.equal(bestBossClear(boss('seren'), { level: 280 }).perPerson, 1840000000);
+});
+
+test('전투력 입력은 억·만 표기와 숫자를 모두 받아들이고 잘못된 값은 버린다', () => {
+  assert.equal(parsePower('1억 2400만'), 124000000);
+  assert.equal(parsePower('1.24억'), 124000000);
+  assert.equal(parsePower('8500만'), 85000000);
+  assert.equal(parsePower('2천만'), 20000000);
+  assert.equal(parsePower('124,000,000'), 124000000);
+  assert.equal(parsePower(' 3억 '), 300000000);
+  for (const bad of ['', '   ', 'abc', '억', '-1', '0', null, undefined, '1억abc']) assert.equal(parsePower(bad), null);
+  // 잘못된 전투력은 캐릭터에 저장하지 않고 레벨 기준으로 되돌아간다.
+  const p = createProfile({ name: '오타', level: 280, combatPower: '많이', source: 'manual' });
+  assert.equal(p.character.combatPower, undefined);
+  assert.equal(p.settings.seren.party, 1);
+  // 문자열로 들어온 정상 값은 정수로 정리해 보관한다.
+  assert.equal(createProfile({ name: '문자열', level: 280, combatPower: '1억2400만', source: 'manual' }).character.combatPower, 124000000);
 });
